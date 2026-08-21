@@ -8,10 +8,15 @@
       "name": "GO: Source",
       "path": "../src"
     },
+    {
+      "name": "GO: Acceptance Tests",
+      "path": "../deploy/acceptance_tests"
+    },
   ],
   "settings": {
     "files.exclude": {
       "**/src": true,
+      "**/acceptance_tests": true,
     },
     "go.lintTool": "golangci-lint",
     "go.lintFlags": [
