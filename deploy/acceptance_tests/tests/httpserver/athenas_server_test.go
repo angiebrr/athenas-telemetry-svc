@@ -6,7 +6,9 @@ import (
 	"athenas-telemetry-acceptance-tests/internal/shared"
 )
 
-func TestGreeterServer(testCtx *testing.T) {
+// ================================================================================================
+
+func TestAthenasTelemetryServer(testCtx *testing.T) {
 	// This acceptance test takes a long time, so skip if short running tests are desired
 	if testing.Short() {
 		testCtx.Skip()
@@ -17,4 +19,8 @@ func TestGreeterServer(testCtx *testing.T) {
 		"8080/tcp",
 		"http",
 	)
+
+	// TODO: add driver for HTTP that specification tests use
+
+	// TODO: add specification test
 }
