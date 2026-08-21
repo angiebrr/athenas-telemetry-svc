@@ -30,13 +30,15 @@ func StartDockerServer(
 ) (containerEndpoint string) {
 	ctx := context.Background()
 
+	// TODO: paths are a little brittle, but it's OK for now
+
 	// set up docker container for acceptance test using the server dockerfile
 	container, err := testcontainers.Run(
 		ctx,
 		"", // Empty string for image name since we're building from Dockerfile
 		testcontainers.WithDockerfile(testcontainers.FromDockerfile{
-			Context:        filepath.Join("..", "..", "..", "..", "src"),
-			Dockerfile:     filepath.Join("..", "deploy", "Dockerfile"),
+			Context:        filepath.Join("..", "..", "..", ".."),
+			Dockerfile:     filepath.Join("deploy", "Dockerfile"),
 			BuildLogWriter: testWriter{testCtx},
 		}),
 		testcontainers.WithExposedPorts(port),
