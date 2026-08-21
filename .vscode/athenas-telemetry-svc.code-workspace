@@ -1,0 +1,21 @@
+{
+  "folders": [
+    {
+      "name": "Root",
+      "path": "../",
+    },
+    {
+      "name": "GO: Source",
+      "path": "../src"
+    },
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/src": true,
+    },
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": [
+      "--fast-only"
+    ],
+  }
+}
