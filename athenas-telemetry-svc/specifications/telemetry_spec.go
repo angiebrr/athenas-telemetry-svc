@@ -10,14 +10,14 @@ import (
 // ================================================================================================
 
 type Telemetry struct {
-	DeviceID  string          `json:"device_id"`
-	Timestamp int64           `json:"timestamp"`
-	Metrics   []MetricReading `json:"metrics"`
+	DeviceID  string          `json:"device_id" binding:"required"`
+	Timestamp int64           `json:"timestamp" binding:"required,min=0"`
+	Metrics   []MetricReading `json:"metrics" binding:"required"`
 }
 
 type MetricReading struct {
-	Name  string  `json:"name"`
-	Value float64 `json:"value"`
+	Name  string  `json:"name" binding:"required"`
+	Value float64 `json:"value" binding:"required"`
 }
 
 type TelemetryIngester interface {
@@ -35,6 +35,8 @@ func TelemetryIngesterSpec(testCtx *testing.T, ingester TelemetryIngester) {
 		},
 	}
 
+	// TODO: these errors are specific to gin/JSON, but getting the validator to use custom english responses is A WHOLE THING
+	// so we're doing that later
 	cases := []struct {
 		Name          string
 		Data          Telemetry
@@ -50,7 +52,7 @@ func TelemetryIngesterSpec(testCtx *testing.T, ingester TelemetryIngester) {
 				input.Metrics = nil
 				return input
 			}(fakeData),
-			ExpectedError: "missing metrics",
+			ExpectedError: "Metrics",
 		},
 		{
 			Name: "invalid metric reading: no device ID",
@@ -58,7 +60,7 @@ func TelemetryIngesterSpec(testCtx *testing.T, ingester TelemetryIngester) {
 				input.DeviceID = ""
 				return input
 			}(fakeData),
-			ExpectedError: "missing device ID",
+			ExpectedError: "DeviceID",
 		},
 		{
 			Name: "invalid metric reading: invalid timestamp",
@@ -66,7 +68,7 @@ func TelemetryIngesterSpec(testCtx *testing.T, ingester TelemetryIngester) {
 				input.Timestamp = -1
 				return input
 			}(fakeData),
-			ExpectedError: "invalid timestamp",
+			ExpectedError: "Timestamp",
 		},
 	}
 
