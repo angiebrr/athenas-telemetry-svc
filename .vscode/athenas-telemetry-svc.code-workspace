@@ -1,22 +1,22 @@
 {
   "folders": [
     {
-      "name": "Root",
+      "name": "ROOT",
       "path": "../",
     },
     {
-      "name": "GO: Source",
-      "path": "../src"
+      "name": "GO: Telemetry Svc",
+      "path": "../athenas-telemetry-svc"
     },
     {
       "name": "GO: Acceptance Tests",
-      "path": "../deploy/acceptance_tests"
+      "path": "../deploy/acceptance-tests"
     },
   ],
   "settings": {
     "files.exclude": {
-      "**/src": true,
-      "**/acceptance_tests": true,
+      "**/athenas-telemetry-svc": true,
+      "**/acceptance-tests": true,
     },
     "go.lintTool": "golangci-lint",
     "go.lintFlags": [
