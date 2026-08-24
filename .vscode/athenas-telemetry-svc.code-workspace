@@ -10,13 +10,13 @@
     },
     {
       "name": "GO: Acceptance Tests",
-      "path": "../deploy/acceptance-tests"
+      "path": "../athenas-acceptance-tests"
     },
   ],
   "settings": {
     "files.exclude": {
       "**/athenas-telemetry-svc": true,
-      "**/acceptance-tests": true,
+      "**/athenas-acceptance-tests": true,
     },
     "go.lintTool": "golangci-lint",
     "go.lintFlags": [

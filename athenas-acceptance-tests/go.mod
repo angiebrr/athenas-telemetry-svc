@@ -2,7 +2,9 @@ module athenas-telemetry-acceptance-tests
 
 go 1.26.4
 
-replace github.com/angiebrr/athenas-telemetry-svc => ../../athenas-telemetry-svc
+// prefer the local version (which should always exist) over what's in version control for accurate
+// tests
+replace github.com/angiebrr/athenas-telemetry-svc => ../athenas-telemetry-svc
 
 require (
 	github.com/angiebrr/athenas-telemetry-svc v0.0.0-20260821192337-a26ce7b16edc

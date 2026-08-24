@@ -5,33 +5,27 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/angiebrr/athenas-telemetry-svc/models"
 )
 
 // ================================================================================================
 
-type Telemetry struct {
-	DeviceID  string          `json:"device_id" binding:"required"`
-	Timestamp int64           `json:"timestamp" binding:"required,min=0"`
-	Metrics   []MetricReading `json:"metrics" binding:"required"`
-}
-
-type MetricReading struct {
-	Name  string  `json:"name" binding:"required"`
-	Value float64 `json:"value" binding:"required"`
-}
-
+// TelemetryIngester is a system interface that is intended to be implemented for use in acceptance
+// tests (via a Driver) or in unit tests (via an Adapter)
 type TelemetryIngester interface {
-	Ingest(telemetry Telemetry) error
+	Ingest(telemetry models.Telemetry) error
 }
 
 // ------------------------------------------------------------------------------------------------
 
+// TelemetryIngesterSpec verifies that an Ingester behaves as expected
 func TelemetryIngesterSpec(testCtx *testing.T, ingester TelemetryIngester) {
-	fakeData := Telemetry{
+	fakeData := models.Telemetry{
 		DeviceID:  "12345",
 		Timestamp: time.Now().UnixMilli(),
-		Metrics: []MetricReading{
-			{"temp", 30.1},
+		Metrics: []models.MetricReading{
+			{Name: "temp", Value: 30.1},
 		},
 	}
 
@@ -39,7 +33,7 @@ func TelemetryIngesterSpec(testCtx *testing.T, ingester TelemetryIngester) {
 	// so we're doing that later
 	cases := []struct {
 		Name          string
-		Data          Telemetry
+		Data          models.Telemetry
 		ExpectedError string
 	}{
 		{
@@ -48,7 +42,7 @@ func TelemetryIngesterSpec(testCtx *testing.T, ingester TelemetryIngester) {
 		},
 		{
 			Name: "invalid metric reading: no metrics",
-			Data: func(input Telemetry) Telemetry {
+			Data: func(input models.Telemetry) models.Telemetry {
 				input.Metrics = nil
 				return input
 			}(fakeData),
@@ -56,7 +50,7 @@ func TelemetryIngesterSpec(testCtx *testing.T, ingester TelemetryIngester) {
 		},
 		{
 			Name: "invalid metric reading: no device ID",
-			Data: func(input Telemetry) Telemetry {
+			Data: func(input models.Telemetry) models.Telemetry {
 				input.DeviceID = ""
 				return input
 			}(fakeData),
@@ -64,7 +58,7 @@ func TelemetryIngesterSpec(testCtx *testing.T, ingester TelemetryIngester) {
 		},
 		{
 			Name: "invalid metric reading: invalid timestamp",
-			Data: func(input Telemetry) Telemetry {
+			Data: func(input models.Telemetry) models.Telemetry {
 				input.Timestamp = -1
 				return input
 			}(fakeData),
