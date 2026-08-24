@@ -3,3 +3,62 @@ go = { version = "1.26.4", postinstall = '''
   go install github.com/go-delve/delve/cmd/dlv@latest
   go install golang.org/x/tools/gopls@latest
 ''' }
+
+[tasks.test]
+description = "Runs go tests"
+usage = '''
+arg "<project>" {
+  choices "telemetry-svc" "acceptance-tests"
+  help "Target go project to run tests again"
+  default "telemetry-svc"
+}
+arg "[target]" help="Target folder (e.g., 'utils' becomes './utils/...')" default="."
+arg "[name]" help="Specific test name or regex to run"
+flag "-v --verbose" help="Enable verbose output"
+flag "-b --bench" help="Run benchmarks and show memory allocations"
+flag "-m --memprofile" help="Output a memory profile to mem.out"
+flag "-r --race" help="Enable the data race detector"
+flag "-a --all" negate="--unit" help="Run all acceptance and unit tests, which may take some time" default=#false
+flag "--force" negate="--no-force" help="Force tests to run and not use cached values" default=#true
+'''
+run = '''
+#!/usr/bin/env bash
+set -e
+
+TARGET_PROJECT="athenas-${usage_project}"
+cd "${TARGET_PROJECT}"
+
+TARGET="${usage_target}"
+
+# Format the target path
+if [[ "$TARGET" == "." ]]; then
+  PKG_PATH="./..."
+else
+  CLEAN_TARGET=$(echo "$TARGET" | sed -e 's/\/$//' -e 's/\/...$//')
+  PKG_PATH="./${CLEAN_TARGET}/..."
+fi
+
+# Add arg so cached values aren't used if specified
+FORCE_ARG=""
+if [[ "$usage_force" == "true" ]]; then
+  FORCE_ARG="-count=1"
+fi
+
+# Add arg so only short-running tests are ran if specified
+SHORT_ARG=""
+if [[ "$usage_all" == "false" ]]; then
+  SHORT_ARG="-short"
+fi
+
+echo "Running tests in: $PKG_PATH for project ${TARGET_PROJECT}"
+
+# Run tests
+go test $PKG_PATH \
+  ${usage_verbose:+-v} \
+  ${usage_name:+-run="$usage_name"} \
+  ${usage_bench:+-bench="." -benchmem} \
+  ${usage_memprofile:+-memprofile="mem.out"} \
+  ${usage_race:+-race} \
+  $FORCE_ARG \
+  $SHORT_ARG
+'''
