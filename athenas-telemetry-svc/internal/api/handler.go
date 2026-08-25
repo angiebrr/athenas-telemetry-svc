@@ -21,8 +21,11 @@ func InitHandlers(router *gin.Engine) {
 // to the telemetry service.
 func HandleIngestTelemetry(ctx *gin.Context) {
 	var data models.Telemetry
-
 	if err := ctx.ShouldBindJSON(&data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := data.Validate(); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
