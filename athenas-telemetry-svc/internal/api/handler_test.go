@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 
 	"github.com/angiebrr/athenas-telemetry-svc/internal/api"
 	"github.com/angiebrr/athenas-telemetry-svc/models"
@@ -36,31 +36,25 @@ func validTelemetry() models.Telemetry {
 	}
 }
 
-// ================================================================================================
+// ------------------------------------------------------------------------------------------------
 
-type HandlerTestSuite struct {
-	suite.Suite
-	server *api.Server
-}
-
-// HandlerTestSuite.SetupSuite builds the one server instance shared by every test in the suite.
+// newTestServer builds a server instance for tests to serve requests against.
 //
-// NOTE: The server holds no request state as of M1, so sharing it is safe. Once it owns a dispatch
-// ring this has to move to SetupTest so cases can't leak state into each other.
-func (rSuite *HandlerTestSuite) SetupSuite() {
+// NOTE: The server holds no request state as of M1, so one instance can be shared by every subtest.
+// Once it owns a dispatch ring each case will need its own so they can't leak state into each other.
+func newTestServer(testCtx testing.TB) *api.Server {
 	// quiet gin debug logs during testing
 	gin.SetMode(gin.TestMode)
 
-	// create a single server instance for all tests in this suite
-	rSuite.server = api.NewServer()
-	require.NotNil(rSuite.T(), rSuite.server, "server should not be nil")
+	server := api.NewServer()
+	require.NotNil(testCtx, server, "server should not be nil")
+
+	return server
 }
 
-// ------------------------------------------------------------------------------------------------
-
-// HandlerTestSuite.doRequest sends one request directly into the gin engine and returns the recorded
-// response.
-func (rSuite *HandlerTestSuite) doRequest(
+// doRequest sends one request directly into the gin engine and returns the recorded response.
+func doRequest(
+	server *api.Server,
 	method string,
 	path string,
 	body io.Reader,
@@ -69,99 +63,103 @@ func (rSuite *HandlerTestSuite) doRequest(
 	request.Header.Set("Content-Type", "application/json")
 
 	recorder := httptest.NewRecorder()
-	rSuite.server.ServeHTTP(recorder, request)
+	server.ServeHTTP(recorder, request)
 
 	return recorder
 }
 
-// HandlerTestSuite.postTelemetry serializes the given telemetry and POSTs it to the ingest endpoint.
-func (rSuite *HandlerTestSuite) postTelemetry(data models.Telemetry) *httptest.ResponseRecorder {
+// postTelemetry serializes the given telemetry and POSTs it to the ingest endpoint.
+func postTelemetry(
+	testCtx testing.TB,
+	server *api.Server,
+	data models.Telemetry,
+) *httptest.ResponseRecorder {
 	payload, err := json.Marshal(data)
-	require.NoError(rSuite.T(), err, "test telemetry should serialize")
+	require.NoError(testCtx, err, "test telemetry should serialize")
 
-	return rSuite.doRequest(http.MethodPost, api.TelemetryPath, bytes.NewReader(payload))
+	return doRequest(server, http.MethodPost, api.TelemetryPath, bytes.NewReader(payload))
 }
 
-// HandlerTestSuite.decodeError pulls the message out of the handler's JSON error envelope.
-func (rSuite *HandlerTestSuite) decodeError(recorder *httptest.ResponseRecorder) string {
+// decodeError pulls the message out of the handler's JSON error envelope.
+func decodeError(testCtx testing.TB, recorder *httptest.ResponseRecorder) string {
 	var response errorResponse
 
 	err := json.NewDecoder(recorder.Body).Decode(&response)
-	require.NoError(rSuite.T(), err, "error responses should carry a JSON error envelope")
+	require.NoError(testCtx, err, "error responses should carry a JSON error envelope")
 
 	return response.Error
 }
 
 // ================================================================================================
 
-// HandlerTestSuite.TestMalformedPayload verifies that a body which isn't valid JSON is rejected at
-// the binding step, before the domain is ever reached.
+// TestHandleIngestTelemetry verifies the transport-level behaviour of the ingest endpoint: the
+// status codes it maps onto, and the routing it does and does not accept.
 //
-// This is the only test in the repo that exercises the ShouldBindJSON failure branch — the spec
-// can't reach it, since its interface speaks models.Telemetry rather than bytes.
-func (rSuite *HandlerTestSuite) TestMalformedPayload() {
-	recorder := rSuite.doRequest(
-		http.MethodPost,
-		api.TelemetryPath,
-		bytes.NewBufferString(`{"device_id":`),
-	)
+// These are deliberately the assertions the telemetry spec cannot make. The spec speaks
+// models.Telemetry rather than bytes, so it can neither send a malformed body nor tell 202 from 200
+// nor 400 from 500.
+func TestHandleIngestTelemetry(testCtx *testing.T) {
+	server := newTestServer(testCtx)
 
-	rSuite.Equal(http.StatusBadRequest, recorder.Code)
-	rSuite.NotEmpty(rSuite.decodeError(recorder), "a malformed body should still report an error")
-}
+	// ---
 
-// HandlerTestSuite.TestValidPayload verifies the accepted path answers 202 Accepted rather than a
-// bare 200, which is the distinction the spec cannot make on its own.
-func (rSuite *HandlerTestSuite) TestValidPayload() {
-	data := validTelemetry()
-	recorder := rSuite.postTelemetry(data)
+	testCtx.Run("accepts valid telemetry with 202", func(subTestCtx *testing.T) {
+		recorder := postTelemetry(subTestCtx, server, validTelemetry())
 
-	rSuite.Equal(http.StatusAccepted, recorder.Code)
-	rSuite.Empty(recorder.Body.String(), "an accepted ingest should not return a body")
-}
+		assert.Equal(subTestCtx, http.StatusAccepted, recorder.Code)
+		assert.Empty(subTestCtx, recorder.Body.String(), "an accepted ingest should return no body")
+	})
 
-// HandlerTestSuite.TestInvalidPayload verifies a domain validation failure maps onto 400 rather than
-// the 500 the handler falls back to for internal errors.
-//
-// This is the concrete, HTTP-specific half of the error classification that the spec asserts only
-// loosely (as "some error") while Ingest still has a single failure mode.
-func (rSuite *HandlerTestSuite) TestInvalidPayload() {
-	data := validTelemetry()
-	data.DeviceID = ""
+	// This is the only case in the repo that exercises the ShouldBindJSON failure branch, since the
+	// spec's interface has no way to send bytes that aren't valid telemetry.
+	testCtx.Run("rejects a malformed body before reaching the domain", func(subTestCtx *testing.T) {
+		recorder := doRequest(
+			server,
+			http.MethodPost,
+			api.TelemetryPath,
+			bytes.NewBufferString(`{"device_id":`),
+		)
 
-	recorder := rSuite.postTelemetry(data)
+		assert.Equal(subTestCtx, http.StatusBadRequest, recorder.Code)
+		assert.NotEmpty(
+			subTestCtx,
+			decodeError(subTestCtx, recorder),
+			"a malformed body should still report an error",
+		)
+	})
 
-	rSuite.Equal(http.StatusBadRequest, recorder.Code)
-	rSuite.Equal("missing device ID", rSuite.decodeError(recorder))
-}
+	// The concrete, HTTP-specific half of the error classification the spec asserts only loosely (as
+	// "some error") while Ingest still has a single failure mode.
+	testCtx.Run("maps a validation failure onto 400, not 500", func(subTestCtx *testing.T) {
+		data := validTelemetry()
+		data.DeviceID = ""
 
-// HandlerTestSuite.TestInvalidPathOrMethod verifies that only POST /v1/telemetry is routed.
-//
-// NOTE: gin answers an unregistered *method* on a known path with 404 rather than 405, because
-// Engine.HandleMethodNotAllowed defaults to false. This pins the behaviour as currently configured,
-// not as HTTP would ideally have it.
-func (rSuite *HandlerTestSuite) TestInvalidPathOrMethod() {
-	cases := []struct {
+		recorder := postTelemetry(subTestCtx, server, data)
+
+		assert.Equal(subTestCtx, http.StatusBadRequest, recorder.Code)
+		assert.Equal(subTestCtx, "missing device ID", decodeError(subTestCtx, recorder))
+	})
+
+	// ---
+
+	// NOTE: gin answers an unregistered *method* on a known path with 404 rather than 405, because
+	// Engine.HandleMethodNotAllowed defaults to false. These pin the behaviour as currently
+	// configured, not as HTTP would ideally have it.
+	routingCases := []struct {
 		Name   string
 		Method string
 		Path   string
 	}{
-		{Name: "unknown path", Method: http.MethodPost, Path: "/v1/nope"},
-		{Name: "unversioned path", Method: http.MethodPost, Path: "/telemetry"},
-		{Name: "wrong method on a known path", Method: http.MethodGet, Path: api.TelemetryPath},
+		{Name: "rejects an unknown path", Method: http.MethodPost, Path: "/v1/nope"},
+		{Name: "rejects an unversioned path", Method: http.MethodPost, Path: "/telemetry"},
+		{Name: "rejects a wrong method on a known path", Method: http.MethodGet, Path: api.TelemetryPath},
 	}
 
-	for _, testCase := range cases {
-		rSuite.Run(testCase.Name, func() {
-			recorder := rSuite.doRequest(testCase.Method, testCase.Path, nil)
+	for _, testCase := range routingCases {
+		testCtx.Run(testCase.Name, func(subTestCtx *testing.T) {
+			recorder := doRequest(server, testCase.Method, testCase.Path, nil)
 
-			rSuite.Equal(http.StatusNotFound, recorder.Code)
+			assert.Equal(subTestCtx, http.StatusNotFound, recorder.Code)
 		})
 	}
-}
-
-// ================================================================================================
-
-func TestHandlerTestSuite(testCtx *testing.T) {
-	suite.Run(testCtx, new(HandlerTestSuite))
 }
