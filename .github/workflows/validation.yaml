@@ -1,0 +1,60 @@
+###################################################################################################
+# This workflow is used to validate the code in the repository, which includes:
+# - Running unit and integ tests
+# - Running acceptance tests
+# - Linting the code
+# - Running govulncheck to check for known vulnerabilities in dependencies
+#
+# It uses mise-action to set up the go environment for each job.
+###################################################################################################
+
+name: "Validation"
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MISE_EXPERIMENTAL: true
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////
+
+jobs:
+  # =============================================
+  # UNIT / INTEG TESTS
+  # =============================================
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - name: Run telemetry service tests
+        run: mise run test --all
+  # =============================================
+  # ACCEPTANCE TESTS
+  # =============================================
+  acceptance-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - name: Run acceptance tests
+        run: mise run acceptance-tests --all
+
+  # TODO: Add linting job
+
+  # TODO: Add govulncheck job
