@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
       - name: Run telemetry service tests
-        run: mise run test --all
+        run: mise run test telemetry-svc --all
   # =============================================
   # ACCEPTANCE TESTS
   # =============================================
@@ -53,7 +53,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
       - name: Run acceptance tests
-        run: mise run acceptance-tests --all
+        run: mise run test acceptance-tests --all
 
   # TODO: Add linting job
 
