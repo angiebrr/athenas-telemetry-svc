@@ -12,9 +12,15 @@ import (
 
 // ================================================================================================
 
+const (
+	TelemetryPath = "/v1/telemetry"
+)
+
+// ------------------------------------------------------------------------------------------------
+
 // InitHandlers registers HTTP endpoint handlers for the telemetry service.
 func InitHandlers(router *gin.Engine) {
-	router.POST("/v1/telemetry", HandleIngestTelemetry)
+	router.POST(TelemetryPath, HandleIngestTelemetry)
 }
 
 // ------------------------------------------------------------------------------------------------
