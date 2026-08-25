@@ -35,9 +35,9 @@ jobs:
   # =============================================
   # UNIT / INTEG TESTS
   # =============================================
-  test:
+  tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
@@ -48,7 +48,7 @@ jobs:
   # =============================================
   acceptance-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
