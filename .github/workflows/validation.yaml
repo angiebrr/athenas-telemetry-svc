@@ -78,14 +78,14 @@ jobs:
       - uses: ./.github/actions/setup-go-env
 
       - name: Lint telemetry service
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           install-mode: none
           working-directory: athenas-telemetry-svc
           args: --config=${{ github.workspace }}/.golangci.yml
 
       - name: Lint acceptance tests
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           install-mode: none
           working-directory: athenas-acceptance-tests
