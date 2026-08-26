@@ -46,13 +46,19 @@ Read GOOS cover-to-cover in this order — one contiguous chapter block per mile
 
 | Milestone | Educative Course | Focus | Key tech | GOOS chapters |
 |---|---|---|---|---|
-| 1. Walking Skeleton (ACTIVE) | 1 — Introduction to Distributed Systems for Dummies | Gin `202` on `/v1/telemetry`, Testcontainers E2E | Go workspaces, Gin, Testcontainers-go | 1–5: TDD's point, TDD with objects, the tools, kick-starting the cycle (**walking skeleton**), maintaining the cycle |
-| 2. In-Memory Concurrency | 1 — Introduction to Distributed Systems for Dummies | Unbuffered dispatch ring in `internal/engine`, worker pools, 100k RPS | Go channels, goroutines, `select` | 6–8: OO style, achieving OO design, building on third-party code |
+| 1. Walking Skeleton (COMPLETE) | 1 — Introduction to Distributed Systems for Dummies | Gin `202` on `/v1/telemetry`, Testcontainers E2E | Go workspaces, Gin, Testcontainers-go | 1–5: TDD's point, TDD with objects, the tools, kick-starting the cycle (**walking skeleton**), maintaining the cycle |
+| 2. In-Memory Concurrency (ACTIVE) | 1 — Introduction to Distributed Systems for Dummies | Unbuffered dispatch ring in `internal/engine`, worker pools, 100k RPS | Go channels, goroutines, `select` | 6–8: OO style, achieving OO design, building on third-party code |
 | 3. SQS + LocalStack | 2 — Distributed Systems for Practitioners | Flush buffers to SQS offline via LocalStack, GoMock interfaces | AWS SQS, LocalStack, Testcontainers, GoMock, Terraform (queue def against LocalStack) | 9–13: commissioning the sniper, the walking skeleton, passing the first test, getting ready to bid, the sniper makes a bid |
 | 4. Transactional Outbox | 2 — Distributed Systems for Practitioners | Atomic Postgres write of event + outbox row, poll-and-publish workers | Postgres, outbox pattern | 14–16: the sniper wins/**acquires state**, towards a real UI, sniping for multiple items |
 | 5. Kafka Streaming | 2 — Distributed Systems for Practitioners | Stream outbox to Kafka, consumer groups, manual pause/resume backpressure | Kafka, sarama, consumer groups | 17–19: teasing apart main, filling in the details, **handling failure** |
 | 6. Kubernetes + Redis | 3 — Distributed Systems: Building Software for the Real World | Multi-pod Minikube, Redis-backed global rate limit / shared alert state | Kubernetes, Helm, Redis, Terraform (cluster resources) | 20–24: listening to the tests, test readability, constructing complex test data, test diagnostics, test flexibility |
 | 7. CD + DORA Observability | 3 — Distributed Systems: Building Software for the Real World | GitHub Actions pipeline, DORA four-keys tracking | GitHub Actions, Terraform (CI role/OIDC), Helm release automation | 25–27: **testing persistence**, **unit testing and threads**, **testing asynchronous code** |
+
+**M1 exited on 2026-08-26.** The walking skeleton is complete: HTTP `202` with validation, the Spec running at three levels (domain, `httptest` transport, container), and a four-job CI pipeline (tests, acceptance, lint, vulncheck). Deployment is explicitly scoped to M7, and that is stated in the README rather than left implicit. Do not re-litigate that scoping.
+
+Two decisions were deferred *to* M2 with a named trigger rather than a date, and both come due on the dispatch ring's first commit:
+- The Spec asserts that invalid input fails, not *how*. Correct while `ingest.Ingest` has one failure mode; starts hiding bugs the moment there is a second. The fix is error classification carried by `httpserver.Driver`, so the Spec can tell caller-fault from callee-fault across any transport.
+- The handler echoes internal error text on its `500` path. Harmless today, an information leak as soon as `Ingest` can fail internally.
 
 Bolded chapters land unusually close to their milestone's real problem even though the order is strictly sequential rather than picked for topic fit — worth flagging the connection when we reach it, not worth reordering to chase it.
 
