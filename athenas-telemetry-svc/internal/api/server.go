@@ -1,3 +1,5 @@
+// Package api provides the API server implementation for the telemetry service, including the
+// gin.Engine setup and handler initialization.
 package api
 
 import "github.com/gin-gonic/gin"
@@ -5,7 +7,7 @@ import "github.com/gin-gonic/gin"
 // ================================================================================================
 
 // Server encapsulates the main gin.Engine instance and any other configuration needed to host and
-// server the telemetry service
+// serve the telemetry service
 type Server struct {
 	*gin.Engine
 }

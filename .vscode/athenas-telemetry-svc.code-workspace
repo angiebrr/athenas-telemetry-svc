@@ -19,8 +19,8 @@
       "**/athenas-acceptance-tests": true,
     },
     "go.lintTool": "golangci-lint",
-    "go.lintFlags": [
-      "--fast-only"
-    ],
+    "go.inlayHints.constantValues": true,
+    "go.inlayHints.rangeVariableTypes": true,
+    "go.lintOnSave": "workspace",
   }
 }

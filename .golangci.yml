@@ -1,0 +1,101 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    - revive
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      # NOTE: A deferred Close on a response body has no meaningful error handling, and requiring
+      # `defer func() { _ = resp.Body.Close() }()` everywhere is noise. Remove this if you'd rather
+      # be told about them.
+      exclude-functions:
+        - (io.Closer).Close
+        - (*net/http.Response).Body.Close
+
+    revive:
+      # Start from every rule revive ships, then switch off the ones that don't earn their keep
+      # here. Anything not listed below is ON, so new revive rules arrive enabled by default.
+      enable-all-rules: true
+
+      rules:
+        # ---- configured, not disabled ----
+
+        # Requires a doc comment on every exported symbol.
+        #
+        # NOTE: disableChecksOnMethods is what lets this repo keep its "Type.Method does X" comment
+        # convention -- revive would otherwise demand every method comment begin with the bare
+        # method name. Functions, types, consts and vars are still checked, and those already
+        # start with their own name.
+        - name: exported
+          arguments:
+            - "disableChecksOnMethods"
+
+        # revive defaults to 80, which this repo has never used -- the section banners alone are 99.
+        - name: line-length-limit
+          arguments: [120]
+
+        # Print-family calls only fail if stdout is broken, at which point there is nowhere to
+        # report it to. Everything else still has to be handled.
+        - name: unhandled-error
+          arguments:
+            - "fmt\\.Print.*"
+            - "fmt\\.Fprint.*"
+
+        # ---- disabled: arbitrary thresholds ----
+        # These fire on a number someone picked rather than on a defect. 
+        # TODO: Worth revisiting at M2, since that is where function size actually starts to matter.
+
+        - name: cyclomatic
+          disabled: true
+        - name: cognitive-complexity
+          disabled: true
+        - name: function-length
+          disabled: true
+        - name: argument-limit
+          disabled: true
+        - name: function-result-limit
+          disabled: true
+        - name: max-public-structs
+          disabled: true
+
+        # Catches genuinely repeated magic values without flagging the literals that carry no
+        # meaning worth naming.
+        #
+        # NOTE: ".." is allowed because repoRoot() walks up the tree with it, and a RelativeParent
+        # constant would be strictly less readable than the literal.
+        - name: add-constant
+          arguments:
+            - maxLitCount: "3"
+              allowStrs: '"",".."'
+              allowInts: "0,1,2"
+              allowFloats: "0.0,0.,1.0,1.,2.0,2."
+              ignoreFuncs: 'fmt\.Print.*,fmt\.Errorf,errors\.New,make'
+
+        # ---- disabled: no-ops without project-specific configuration ----
+
+        - name: banned-characters
+          disabled: true
+        - name: file-header
+          disabled: true
+
+  exclusions:
+    rules:
+      # Test tables are literals by nature -- a fixture device ID or a repeated "/v1/nope" path is
+      # clearer spelled out at the case than hoisted into a constant away from it.
+      #
+      # NOTE: specifications/ is included because it is test infrastructure that deliberately lives
+      # in non-_test.go files, so the acceptance module can import it across the module boundary.
+      - path: (_test\.go|specifications/)
+        linters: [revive]
+        text: add-constant
+
+formatters:
+  enable:
+    - gofmt

@@ -1,3 +1,4 @@
+// Package httpserver provides a driver for acceptance tests to make HTTP calls to the telemetry service.
 package httpserver
 
 import (
@@ -33,13 +34,13 @@ type Driver struct {
 // NewDriver sets up the base URL and HTTP client and creates a new Driver instance used for
 // acceptance testing
 func NewDriver(baseURL string, client *http.Client) (*Driver, error) {
-	url, err := url.Parse(baseURL)
+	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("unable to make http driver: %w", err)
 	}
 
 	return &Driver{
-		BaseURL: url,
+		BaseURL: parsedURL,
 		Client:  client,
 	}, nil
 }
@@ -48,8 +49,12 @@ func NewDriver(baseURL string, client *http.Client) (*Driver, error) {
 // reports the error if there is any.
 func (rDriver *Driver) Ingest(data models.Telemetry) error {
 	// set up the proper endpoint, starting with the base URL
+	//
+	// NOTE: The path is deliberately hardcoded rather than shared with the service. This driver is a
+	// black-box client, so a route rename should break the acceptance suite rather than silently
+	// follow the implementation and let a breaking API change ship green.
 	ingestURL := *rDriver.BaseURL
-	ingestURL.Path = "v1/telemetry"
+	ingestURL.Path = "/v1/telemetry"
 
 	// serialize our telemetry payload
 	jsonBytes, err := json.Marshal(&data)

@@ -13,6 +13,8 @@ import (
 // ================================================================================================
 
 const (
+	// TelemetryPath represents the telemetry ingestion resource HTTP path.
+	// This is the path that clients will POST telemetry data to.
 	TelemetryPath = "/v1/telemetry"
 )
 
@@ -25,8 +27,10 @@ func InitHandlers(router *gin.Engine) {
 
 // ------------------------------------------------------------------------------------------------
 
-// HandleIngestTelemetry handles the endpoint that validates and stores the telemetry that's sent
-// to the telemetry service.
+// HandleIngestTelemetry binds and validates telemetry sent to the ingest endpoint, answering
+// 202 Accepted once the domain has taken it.
+//
+// NOTE: The payload is not persisted or dispatched anywhere yet -- see the TODO in ingest.Ingest.
 func HandleIngestTelemetry(ctx *gin.Context) {
 	// deserialize request into a telemetry model
 	var data models.Telemetry

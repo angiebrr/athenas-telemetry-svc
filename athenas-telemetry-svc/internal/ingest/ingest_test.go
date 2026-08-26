@@ -16,7 +16,8 @@ import (
 // so we can use the specification tests to verify that the Ingest domain logic behaves as expected.
 type IngestAdapter struct{}
 
-func (adapter IngestAdapter) Ingest(data models.Telemetry) error {
+// IngestAdapter.Ingest satisfies TelemetryIngester by delegating to the package-level Ingest.
+func (IngestAdapter) Ingest(data models.Telemetry) error {
 	return ingest.Ingest(data)
 }
 

@@ -1,5 +1,7 @@
 # athenas-telemetry-svc
 
+[![Validation](https://github.com/angiebrr/athenas-telemetry-svc/actions/workflows/validation.yaml/badge.svg)](https://github.com/angiebrr/athenas-telemetry-svc/actions/workflows/validation.yaml)
+
 A distributed telemetry ingestion service in Go, grown milestone by milestone under outside-in TDD.
 
 This is a **self-directed study project** — the curriculum, milestones, and constraints are self-designed, not coursework and not assigned. The goal is to build a horizontally scalable, stateful backend service the way it would be built on a team that takes testing seriously, and to have the design decisions be defensible under review.
@@ -61,6 +63,12 @@ Dependencies flow one way — the acceptance module imports the service, never t
 `specifications/` lives in the service module and is intentionally exported rather than `internal/`, so the separate test module can consume it. That placement is what makes the one-spec-many-drivers arrangement possible across a module boundary.
 
 Acceptance tests build `deploy/Dockerfile` through Testcontainers and run against the resulting container, so they exercise the same image that would ship.
+
+### What CI proves, and what it doesn't
+
+Every push and pull request runs four jobs: unit and transport tests, the container-backed acceptance suite, `golangci-lint` across both modules, and `govulncheck` against both modules' dependency trees. The linter and the vulnerability scanner are pinned — golangci-lint through `mise.toml`, govulncheck as a `tool` directive in each `go.mod` — so the editor, a local run, and CI all execute the same versions.
+
+What that pipeline deliberately does **not** do is deploy. There is no hosted environment for this service yet, and standing one up is Milestone 7, where continuous delivery and DORA metrics are the subject rather than a side effect. Until then the image is built and exercised in CI but never published or released anywhere.
 
 ## Running it
 

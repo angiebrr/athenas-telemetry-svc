@@ -12,14 +12,19 @@ type ValidateTelemetryError struct {
 	err string
 }
 
+// ValidateTelemetryError.Error returns the validation message this error was built with.
 func (rErr ValidateTelemetryError) Error() string {
 	return rErr.err
 }
 
 var (
-	ErrMissingDeviceID   = ValidateTelemetryError{err: "missing device ID"}
-	ErrInvalidTimestamp  = ValidateTelemetryError{err: "invalid timestamp"}
-	ErrMissingMetrics    = ValidateTelemetryError{err: "missing metrics"}
+	// ErrMissingDeviceID is returned when the telemetry data is missing a device ID
+	ErrMissingDeviceID = ValidateTelemetryError{err: "missing device ID"}
+	// ErrInvalidTimestamp is returned when the telemetry data has an invalid timestamp (negative)
+	ErrInvalidTimestamp = ValidateTelemetryError{err: "invalid timestamp"}
+	// ErrMissingMetrics is returned when the telemetry data is missing metrics.
+	ErrMissingMetrics = ValidateTelemetryError{err: "missing metrics"}
+	// ErrMissingMetricName is returned when the telemetry data has a metric with a missing name
 	ErrMissingMetricName = ValidateTelemetryError{err: "missing metric name"}
 )
 

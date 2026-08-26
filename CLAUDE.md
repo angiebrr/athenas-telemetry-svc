@@ -21,19 +21,30 @@ The short version: act as an advisor. Name patterns, sketch interfaces, outline 
 Tooling is managed by `mise` (`mise.toml`). Angie has explicitly standardized on mise over Makefiles — do not add a Makefile or suggest raw `go test` invocations.
 
 ```bash
-mise run test                                  # unit tests, telemetry-svc (default project, -short)
-mise run test acceptance-tests --all           # acceptance tests (needs Docker; skipped without --all)
-mise run test telemetry-svc api                # scope to ./api/... within the module
+mise run test                                  # every project, everything (needs Docker)
+mise run test --short                          # every project, -short (acceptance suite skips)
+mise run test telemetry-svc                    # scope to one project -- the fast TDD inner loop
+mise run test telemetry-svc internal/api       # scope to ./internal/api/... within the module
 mise run test telemetry-svc . TestFoo          # single test by name/regex
 mise run test telemetry-svc --race             # data race detector
 mise run test telemetry-svc --bench --memprofile   # benchmarks + allocs, writes mem.out
+
+mise run lint                                  # golangci-lint over both modules
+mise run lint --fix                            # ...applying auto-fixes
+mise run vulncheck                             # govulncheck over both modules
 ```
 
-**The `--all` / `--short` interaction is the one to remember.** The task passes `-short` unless `--all` is given, and the acceptance test calls `testCtx.Skip()` under `testing.Short()`. So a plain `mise run test acceptance-tests` runs *nothing meaningful* and still exits green — it is not evidence the acceptance suite passes. Use `--all` when the claim depends on it.
+**The project argument defaults to `all`, and skipping is opt-in.** A bare `mise run test` fans out over every project and runs the container-backed acceptance suite — slow, but it cannot silently cover nothing. `--short` passes `-short`, which makes the acceptance test call `testCtx.Skip()`. The old default was the reverse (`-short` unless `--all` was given), and a plain `mise run test acceptance-tests` used to exit green having run nothing at all.
+
+If Docker isn't running, the acceptance suite now **fails** rather than skipping. That's intended: a test that quietly passes when its environment is missing is not evidence of anything.
 
 Tests run with `-count=1` by default (`--no-force` to allow the cache).
 
-Linting is configured per-editor, not per-repo: `golangci-lint --fast-only` via the VS Code workspace. There is no `.golangci.yml`.
+The project list lives once in `[vars] projects` in `mise.toml` and is templated into every task, so adding a third go project means editing one line.
+
+Editor tooling (`dlv`, `gopls`) is declared in `mise.dev.toml`, not `mise.toml` — run `MISE_ENV=dev mise install` locally to get it. CI sets no `MISE_ENV`, so `jdx/mise-action` installs only the Go toolchain and golangci-lint.
+
+Linting is configured repo-wide in `.golangci.yml` (golangci-lint **v2** schema; the version is pinned in `mise.toml` so the editor and CI agree). revive runs with `enable-all-rules`, minus a short disabled list documented inline. The `exported` rule is configured with `disableChecksOnMethods` specifically so the repo's `Type.Method does X` comment convention keeps working.
 
 ## Architecture
 
@@ -58,22 +69,35 @@ The payoff: one Spec, many Drivers. Future milestones add drivers (SQS, multi-po
 
 ### Acceptance test container lifecycle
 
-`athenas-acceptance-tests/internal/shared/docker.go` builds `deploy/Dockerfile` via Testcontainers with the **repo root** as build context (the Dockerfile copies `./athenas-telemetry-svc`). Container logs are bridged to `t.Log`, and cleanup terminates the container.
+`athenas-acceptance-tests/internal/shared/docker.go` builds `deploy/Dockerfile` via Testcontainers with the **repo root** as build context (the Dockerfile copies `./athenas-telemetry-svc`). Docker **build** logs are bridged to `t.Log` via `BuildLogWriter`, and the running container's stdout/stderr via a `LogConsumer`; cleanup terminates the container. The consumer is mutex-guarded and its `stop` is registered *before* the container's cleanup so it runs *after* it (`t.Cleanup` is last-added-first-called) — that ordering is load-bearing, since terminating the container drains the shutdown lines worth keeping, and `t.Log` panics once a test completes.
 
 `repoRoot()` resolves the root by `runtime.Caller(0)` and walking up three directories — **moving `docker.go` breaks the Docker build context silently**. This is documented in the code as a known, accepted fragility.
 
 ### Service internals
 
-`cmd/athenas/main.go` → `api.NewServer()` (a `gin.Engine` wrapper) → `api.InitHandlers` registers `POST /v1/telemetry` → `HandleIngestTelemetry` binds JSON and returns `202 Accepted`.
+`cmd/athenas/main.go` → `api.NewServer()` (a `gin.Engine` wrapper) → `api.InitHandlers` registers `POST api.TelemetryPath` → `HandleIngestTelemetry` binds JSON, calls `ingest.Ingest`, and returns `202 Accepted`.
+
+Transport and domain are separate as of M1. `internal/ingest` owns the rules (`Ingest` → `Validate`), and the handler only translates: `ingest.ValidateTelemetryError` becomes `400`, anything else `500`. Validation is deliberately **not** on `models.Telemetry` — `models` is exported, so a driver could otherwise call `Validate` client-side and pass the Spec without the server doing anything.
+
+The same `TelemetryIngesterSpec` runs at three levels: against `internal/ingest` directly (microseconds), against the gin engine via `httptest` (`internal/api/handler_test.go`, transport translation only), and against a container over real HTTP. `httpserver.Driver` **deliberately hardcodes** `/v1/telemetry` rather than importing `api.TelemetryPath` — it is a black-box client, and sharing the constant would let a route rename ship green.
 
 ## Known Debt (deliberate, tracked in TODOs)
 
 Don't "fix" these unprompted — several are milestone work she plans to do herself.
 
-- **Validation lives at the transport layer.** `models.Telemetry` carries gin `binding:"required"` tags, so validation is Gin's. The Spec's expected errors (`"DeviceID"`, `"Metrics"`, `"Timestamp"`) are substrings of go-playground/validator output — which couples the framework-agnostic Spec to Gin. Both TODOs acknowledge this; the fix is pending custom validation messages.
+- **The Spec asserts only that invalid input fails, not how.** `internal/ingest.Ingest` currently has exactly one failure mode (validation), so "any error" and "validation error" describe the same set. Once M2 adds a second class — a full dispatch ring — that assertion starts hiding real bugs, and `httpserver.Driver` needs to carry error classification so the Spec can distinguish caller-fault from callee-fault across any transport. Deliberately deferred to M2.
+- **The handler echoes internal error text on its 500 path.** Harmless while every error is a validation error; an information leak the moment `Ingest` can fail internally. Same M2 trigger as above.
 - **`HandleIngestTelemetry` discards the payload** (`// TODO: do something with data`) — Milestone 2 work.
-- **Server port is hardcoded** to Gin's `0.0.0.0:8080` default; no config layer yet.
-- `deploy/acceptance-tests/` is an empty placeholder directory.
+- **No config layer.** The port is Gin's `0.0.0.0:8080` default, and `GIN_MODE=release` is set as a bare `ENV` in the Dockerfile. Both are placeholders for real configuration, which is M2 work.
+- **Complexity linting is off.** `cyclomatic`, `cognitive-complexity`, and `function-length` are disabled in `.golangci.yml` because the whole codebase currently measures ≤6 on all three, so any conventional threshold could not fire. Revisit when the dispatch ring lands and set the limit from measurement, not folklore.
+
+## CI
+
+`.github/workflows/validation.yaml` runs four jobs on every push and PR to `main`: `tests`, `acceptance-tests` (Docker), `lint`, and `vulncheck`. Each starts with the local `./.github/actions/setup-go-env` composite action, which runs `jdx/mise-action` and restores one shared Go module/build cache keyed on `hashFiles('**/go.sum')` — mise-action caches the toolchain but not `GOMODCACHE`/`GOCACHE`.
+
+CI sets `MISE_ENV: ci`, which overrides the committed `.miserc.toml` (`env = ["dev"]`) so `mise.dev.toml`'s editor tooling (`dlv`, `gopls`) is skipped. Jobs invoke `mise run <task>` so CI and local run identical commands — the one exception is lint, which uses `golangci/golangci-lint-action` with `install-mode: none` for inline PR annotations while still executing the mise-pinned binary.
+
+**There is no deploy.** The image is built and exercised, never published. Continuous delivery is Milestone 7.
 
 ## Conventions
 
