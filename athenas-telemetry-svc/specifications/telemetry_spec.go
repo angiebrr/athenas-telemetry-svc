@@ -1,3 +1,6 @@
+// Package specifications contains the specifications for the telemetry service, which are used to
+// verify that the service behaves as expected. These specifications are intended to be used in both
+// acceptance tests and unit tests, and are designed to be implemented by a Driver or Adapter.
 package specifications
 
 import (

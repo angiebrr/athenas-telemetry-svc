@@ -1,3 +1,4 @@
+// Package httpserver provides a driver for acceptance tests to make HTTP calls to the telemetry service.
 package httpserver
 
 import (
@@ -33,13 +34,13 @@ type Driver struct {
 // NewDriver sets up the base URL and HTTP client and creates a new Driver instance used for
 // acceptance testing
 func NewDriver(baseURL string, client *http.Client) (*Driver, error) {
-	url, err := url.Parse(baseURL)
+	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("unable to make http driver: %w", err)
 	}
 
 	return &Driver{
-		BaseURL: url,
+		BaseURL: parsedURL,
 		Client:  client,
 	}, nil
 }

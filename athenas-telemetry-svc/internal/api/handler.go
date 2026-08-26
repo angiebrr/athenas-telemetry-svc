@@ -13,6 +13,8 @@ import (
 // ================================================================================================
 
 const (
+	// TelemetryPath represents the telemetry ingestion resource HTTP path.
+	// This is the path that clients will POST telemetry data to.
 	TelemetryPath = "/v1/telemetry"
 )
 

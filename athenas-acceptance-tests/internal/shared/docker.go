@@ -1,3 +1,5 @@
+// Package shared provides common utilities for acceptance tests, such as starting a Docker container
+// for the telemetry service.
 package shared
 
 import (
