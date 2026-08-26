@@ -16,7 +16,7 @@ import (
 
 // ================================================================================================
 
-// Simple helper to bridge io.Writer to testing Log func that testcontainers will use
+// testWriter is a simple helper to bridge io.Writer to the testing Log func testcontainers uses
 type testWriter struct{ testCtx testing.TB }
 
 // Write calls Log from the wrapped testing.TB instance with the given data
@@ -50,8 +50,11 @@ func repoRoot() string {
 // StartDockerServer runs the athena telemetry service using the Dockerfile in deploy/ so our
 // acceptance test can run against it.
 //
-// The dockerfile logs will be tied to testCtx's Log func, and the container will be terminated on
-// test cleanup.
+// The docker *build* logs will be tied to testCtx's Log func, and the container will be terminated
+// on test cleanup.
+//
+// NOTE: Only build output is bridged. The container's own stdout is not captured, so a service that
+// fails after the image builds surfaces only as a wait-strategy timeout with no explanation.
 func StartDockerServer(
 	testCtx testing.TB,
 	port string,

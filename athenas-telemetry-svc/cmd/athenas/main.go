@@ -3,6 +3,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/angiebrr/athenas-telemetry-svc/internal/api"
 )
@@ -10,11 +11,12 @@ import (
 // ================================================================================================
 
 func main() {
+	// TODO: Add server config for port and other things- listens on 0.0.0.0:8080 by default
 	server := api.NewServer()
 
 	fmt.Println("Telemetry service is running...")
-	err := server.Run() // TODO: Add config for port and other things- listens on 0.0.0.0:8080 by default
+	err := server.Run()
 	if err != nil {
-		panic(fmt.Sprintf("Error running server: %v\n", err))
+		log.Fatalf("Failed to run telemetry service: %v", err)
 	}
 }

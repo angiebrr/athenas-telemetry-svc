@@ -3,7 +3,7 @@ package ingest
 
 import "github.com/angiebrr/athenas-telemetry-svc/models"
 
-// ===============================================================================================
+// ================================================================================================
 
 // Ingest is the internal domain logic for ingesting telemetry data.
 func Ingest(data models.Telemetry) error {

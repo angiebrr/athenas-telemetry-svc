@@ -32,7 +32,10 @@ func TelemetryIngesterSpec(testCtx *testing.T, ingester TelemetryIngester) {
 		},
 	}
 
-	// TODO: This doesn't seem like enough?
+	// TODO: This asserts that invalid input fails, but not *how* it fails. Ingest has exactly one
+	// failure mode today, so "any error" and "validation error" describe the same set of outcomes.
+	// The moment M2's dispatch ring adds a second class, this assertion starts hiding real bugs --
+	// that is the trigger to give the drivers error classification, not a date on a calendar.
 
 	testCtx.Run("ingest valid telemetry", func(subTestCtx *testing.T) {
 		err := ingester.Ingest(fakeData)

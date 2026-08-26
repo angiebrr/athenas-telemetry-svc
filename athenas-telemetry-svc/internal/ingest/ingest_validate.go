@@ -12,6 +12,7 @@ type ValidateTelemetryError struct {
 	err string
 }
 
+// ValidateTelemetryError.Error returns the validation message this error was built with.
 func (rErr ValidateTelemetryError) Error() string {
 	return rErr.err
 }

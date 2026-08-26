@@ -1,4 +1,4 @@
-// Package models contains the data models used by the telemetry service, and is exported publically
+// Package models contains the data models used by the telemetry service, and is exported publicly
 // mostly so it can be used by the acceptance tests (but has the benefit of being public for other
 // clients as well)
 package models

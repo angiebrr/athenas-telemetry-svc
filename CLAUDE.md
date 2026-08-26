@@ -69,7 +69,7 @@ The payoff: one Spec, many Drivers. Future milestones add drivers (SQS, multi-po
 
 ### Acceptance test container lifecycle
 
-`athenas-acceptance-tests/internal/shared/docker.go` builds `deploy/Dockerfile` via Testcontainers with the **repo root** as build context (the Dockerfile copies `./athenas-telemetry-svc`). Container logs are bridged to `t.Log`, and cleanup terminates the container.
+`athenas-acceptance-tests/internal/shared/docker.go` builds `deploy/Dockerfile` via Testcontainers with the **repo root** as build context (the Dockerfile copies `./athenas-telemetry-svc`). Docker **build** logs are bridged to `t.Log` via `BuildLogWriter`, and cleanup terminates the container. The container's own stdout is *not* captured — a service that fails after the image builds shows up only as a wait-strategy timeout.
 
 `repoRoot()` resolves the root by `runtime.Caller(0)` and walking up three directories — **moving `docker.go` breaks the Docker build context silently**. This is documented in the code as a known, accepted fragility.
 
