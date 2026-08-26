@@ -30,3 +30,7 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# mise local overrides (see mise.dev.toml for the shared dev environment)
+mise.local.toml
+mise.*.local.toml

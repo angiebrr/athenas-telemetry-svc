@@ -1,0 +1,19 @@
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directory: /athenas-telemetry-svc
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: gomod
+    directory: /athenas-acceptance-tests
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -1,0 +1,36 @@
+###################################################################################################
+# Installs the mise-managed toolchain and restores the go module and build caches.
+#
+# mise-action caches the tools it installs, but not GOMODCACHE or GOCACHE, so without the cache step
+# below every job re-downloads every dependency on every run.
+###################################################################################################
+
+name: "Setup go environment"
+description: "Installs the mise-managed toolchain and restores the go module and build caches"
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////
+
+runs:
+  using: composite
+
+  steps:
+    - uses: jdx/mise-action@v3
+
+    # NOTE: Resolved at runtime rather than hardcoded to ~/go, since mise relocates GOPATH into its
+    # own install directory.
+    - name: Resolve go cache paths
+      id: go-cache-paths
+      shell: bash
+      run: |
+        echo "mod=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+        echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+
+    # One cache shared by every job -- the key is derived purely from the lock files, so per-job
+    # keys would just store near-identical copies and burn through the repo's cache quota.
+    - uses: actions/cache@v4
+      with:
+        path: |
+          ${{ steps.go-cache-paths.outputs.mod }}
+          ${{ steps.go-cache-paths.outputs.build }}
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: ${{ runner.os }}-go-

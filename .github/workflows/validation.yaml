@@ -5,13 +5,15 @@
 # - Linting the code
 # - Running govulncheck to check for known vulnerabilities in dependencies
 #
-# It uses mise-action to set up the go environment for each job.
+# Each job sets up its toolchain and go caches through the local setup-go-env composite action.
 ###################################################################################################
 
 name: "Validation"
 
 permissions:
   contents: read
+  # annotate PRs with linting results
+  pull-requests: read
 
 on:
   pull_request:
@@ -26,8 +28,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  timeout-minutes: 5
+
 env:
   MISE_EXPERIMENTAL: true
+  MISE_ENV: ci
 
 # /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -37,12 +43,13 @@ jobs:
   # =============================================
   tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v3
+      - uses: ./.github/actions/setup-go-env
+
       - name: Run telemetry service tests
-        run: mise run test telemetry-svc --all
+        run: mise run test telemetry-svc
+
   # =============================================
   # ACCEPTANCE TESTS
   # =============================================
@@ -51,10 +58,48 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v3
+      - uses: ./.github/actions/setup-go-env
+
       - name: Run acceptance tests
-        run: mise run test acceptance-tests --all
+        run: mise run test acceptance-tests
 
-  # TODO: Add linting job
+  # =============================================
+  # LINTING
+  # =============================================
+  #
+  # NOTE: 
+  #   - This uses golangci-lint-action rather than `mise run lint` so findings show up as inline
+  #     annotations on the PR diff. 
+  #   - install-mode "none" means it runs the mise-pinned binary rather than installing its own,
+  #     so the version stays declared in exactly one place.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-go-env
 
-  # TODO: Add govulncheck job
+      - name: Lint telemetry service
+        uses: golangci/golangci-lint-action@v8
+        with:
+          install-mode: none
+          working-directory: athenas-telemetry-svc
+          args: --config=${{ github.workspace }}/.golangci.yml
+
+      - name: Lint acceptance tests
+        uses: golangci/golangci-lint-action@v8
+        with:
+          install-mode: none
+          working-directory: athenas-acceptance-tests
+          args: --config=${{ github.workspace }}/.golangci.yml
+
+  # =============================================
+  # VULNERABILITY SCANNING
+  # =============================================
+  vulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-go-env
+
+      - name: Scan every project
+        run: mise run vulncheck

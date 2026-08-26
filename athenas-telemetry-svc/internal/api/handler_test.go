@@ -40,8 +40,9 @@ func validTelemetry() models.Telemetry {
 
 // newTestServer builds a server instance for tests to serve requests against.
 //
-// NOTE: The server holds no request state as of M1, so one instance can be shared by every subtest.
-// Once it owns a dispatch ring each case will need its own so they can't leak state into each other.
+// NOTE: The server holds no request state as of M1, so one instance can be shared by every
+// subtest. Once it owns a dispatch ring each case needs its own, so they can't leak state into
+// each other.
 func newTestServer(testCtx testing.TB) *api.Server {
 	// quiet gin debug logs during testing
 	gin.SetMode(gin.TestMode)
@@ -128,8 +129,8 @@ func TestHandleIngestTelemetry(testCtx *testing.T) {
 		)
 	})
 
-	// The concrete, HTTP-specific half of the error classification the spec asserts only loosely (as
-	// "some error") while Ingest still has a single failure mode.
+	// The concrete, HTTP-specific half of the error classification the spec asserts only
+	// loosely (as "some error") while Ingest still has a single failure mode.
 	testCtx.Run("maps a validation failure onto 400, not 500", func(subTestCtx *testing.T) {
 		data := validTelemetry()
 		data.DeviceID = ""
@@ -152,7 +153,11 @@ func TestHandleIngestTelemetry(testCtx *testing.T) {
 	}{
 		{Name: "rejects an unknown path", Method: http.MethodPost, Path: "/v1/nope"},
 		{Name: "rejects an unversioned path", Method: http.MethodPost, Path: "/telemetry"},
-		{Name: "rejects a wrong method on a known path", Method: http.MethodGet, Path: api.TelemetryPath},
+		{
+			Name:   "rejects a wrong method on a known path",
+			Method: http.MethodGet,
+			Path:   api.TelemetryPath,
+		},
 	}
 
 	for _, testCase := range routingCases {

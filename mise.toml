@@ -1,16 +1,27 @@
+###################################################################################################
+# Shared tooling and tasks for the repo.
+# 
+# IDE tools (dlv, gopls) live in mise.dev.toml so CI doesn't pay the cost of building them.
+###################################################################################################
+
 [tools]
-go = { version = "1.26.4", postinstall = '''
-  go install github.com/go-delve/delve/cmd/dlv@latest
-  go install golang.org/x/tools/gopls@latest
-''' }
+go = "1.26.7"
+golangci-lint = "2.12.2"
+
+[vars]
+# Every go project in the repo, in the order tasks should walk them. Task scripts prefix these with
+# "athenas-" to get the directory name.
+projects = "telemetry-svc acceptance-tests"
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////
 
 [tasks.test]
 description = "Runs go tests"
 usage = '''
 arg "<project>" {
-  choices "telemetry-svc" "acceptance-tests"
-  help "Target go project to run tests again"
-  default "telemetry-svc"
+  choices "all" "telemetry-svc" "acceptance-tests"
+  help "Target go project to run tests again, or 'all' for every project"
+  default "all"
 }
 arg "[target]" help="Target folder (e.g., 'utils' becomes './utils/...')" default="."
 arg "[name]" help="Specific test name or regex to run"
@@ -18,15 +29,20 @@ flag "-v --verbose" help="Enable verbose output"
 flag "-b --bench" help="Run benchmarks and show memory allocations"
 flag "-m --memprofile" help="Output a memory profile to mem.out"
 flag "-r --race" help="Enable the data race detector"
-flag "-a --all" negate="--unit" help="Run all acceptance and unit tests, which may take some time" default=#false
+flag "-s --short" help="Skip long-running tests, which skips the acceptance suite entirely" default=#false
 flag "--force" negate="--no-force" help="Force tests to run and not use cached values" default=#true
 '''
 run = '''
 #!/usr/bin/env bash
 set -e
 
-TARGET_PROJECT="athenas-${usage_project}"
-cd "${TARGET_PROJECT}"
+# Resolve which projects to run against -- 'all' fans out over every project, otherwise it's just
+# the one that was named
+if [[ "${usage_project}" == "all" ]]; then
+  PROJECTS=({{ vars.projects }})
+else
+  PROJECTS=("${usage_project}")
+fi
 
 TARGET="${usage_target}"
 
@@ -45,20 +61,81 @@ if [[ "$usage_force" == "true" ]]; then
 fi
 
 # Add arg so only short-running tests are ran if specified
+#
+# NOTE: This is opt-in. The acceptance suite calls testCtx.Skip() under testing.Short(), so making
+# -short the default would let a green run cover nothing at all.
 SHORT_ARG=""
-if [[ "$usage_all" == "false" ]]; then
+if [[ "$usage_short" == "true" ]]; then
   SHORT_ARG="-short"
 fi
 
-echo "Running tests in: $PKG_PATH for project ${TARGET_PROJECT}"
+for PROJECT in "${PROJECTS[@]}"; do
+  TARGET_PROJECT="athenas-${PROJECT}"
 
-# Run tests
-go test $PKG_PATH \
-  ${usage_verbose:+-v} \
-  ${usage_name:+-run="$usage_name"} \
-  ${usage_bench:+-bench="." -benchmem} \
-  ${usage_memprofile:+-memprofile="mem.out"} \
-  ${usage_race:+-race} \
-  $FORCE_ARG \
-  $SHORT_ARG
+  echo "Running tests in: $PKG_PATH for project ${TARGET_PROJECT}"
+
+  # Run tests in a subshell so each project starts from the repo root
+  (
+    cd "${TARGET_PROJECT}"
+
+    go test $PKG_PATH \
+      ${usage_verbose:+-v} \
+      ${usage_name:+-run="$usage_name"} \
+      ${usage_bench:+-bench="." -benchmem} \
+      ${usage_memprofile:+-memprofile="mem.out"} \
+      ${usage_race:+-race} \
+      $FORCE_ARG \
+      $SHORT_ARG
+  )
+done
+'''
+
+# -------------------------------------------------------------------------------------------------
+
+[tasks.lint]
+description = "Lints every go project with golangci-lint"
+usage = '''
+flag "-f --fix" help="Apply auto-fixes where the linter supports them"
+'''
+run = '''
+#!/usr/bin/env bash
+set -e
+
+# every project shares the one config at the repo root, but golangci-lint does not cross module
+# boundaries so it has to be invoked once per project
+CONFIG="$(pwd)/.golangci.yml"
+
+# NOTE: Failures are collected rather than fatal, so a problem in the first project doesn't hide
+# every problem in the next one.
+STATUS=0
+
+for PROJECT in {{ vars.projects }}; do
+  TARGET_PROJECT="athenas-${PROJECT}"
+
+  echo "Linting ${TARGET_PROJECT}..."
+  ( cd "${TARGET_PROJECT}" && golangci-lint run --config "${CONFIG}" ${usage_fix:+--fix} ./... ) || STATUS=1
+done
+
+exit $STATUS
+'''
+
+# -------------------------------------------------------------------------------------------------
+
+[tasks.vulncheck]
+description = "Scans every go project for known vulnerabilities with govulncheck"
+run = '''
+#!/usr/bin/env bash
+set -e
+
+# NOTE: As with lint, a finding in the first project shouldn't stop the next from being scanned.
+STATUS=0
+
+for PROJECT in {{ vars.projects }}; do
+  TARGET_PROJECT="athenas-${PROJECT}"
+
+  echo "Scanning ${TARGET_PROJECT}..."
+  ( cd "${TARGET_PROJECT}" && go tool govulncheck ./... ) || STATUS=1
+done
+
+exit $STATUS
 '''

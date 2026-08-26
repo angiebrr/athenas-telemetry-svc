@@ -1,0 +1,22 @@
+# The Docker build context is the repo root (see athenas-acceptance-tests/internal/shared/docker.go),
+# but deploy/Dockerfile only ever copies ./athenas-telemetry-svc. Everything else is context that
+# gets shipped to the daemon on every Testcontainers build for no reason.
+
+.git
+.github
+.claude
+.vscode
+
+# the acceptance suite tests the image, it is never part of it
+athenas-acceptance-tests
+
+# tooling and docs
+mise.toml
+.miserc.toml
+.golangci.yml
+*.md
+LICENSE
+
+# build/profiling output
+mem.out
+*.out

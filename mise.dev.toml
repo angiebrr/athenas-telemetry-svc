@@ -1,0 +1,10 @@
+###################################################################################################
+# Editor / debugger tooling, layered on top of mise.toml.
+#
+# These are needed for IDE integration and interactive debugging and not useful in CI- this will
+# automatically get used because of our .miserc.toml
+###################################################################################################
+
+[tools]
+"go:github.com/go-delve/delve/cmd/dlv" = "latest"
+"go:golang.org/x/tools/gopls" = "latest"
