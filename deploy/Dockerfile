@@ -21,6 +21,10 @@ RUN CGO_ENABLED=0 go build -o svr ./cmd/athenas
 # =================================================================================================
 FROM alpine:3.24
 
+# Run gin in release mode to avoid debug logging and other development features.
+# TODO: Consider adding this to the server config, which is another TODO in the service in main.go
+ENV GIN_MODE=release
+
 WORKDIR /app
 
 COPY --from=builder /app/svr ./svr
