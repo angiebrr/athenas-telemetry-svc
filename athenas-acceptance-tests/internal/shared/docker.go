@@ -16,13 +16,23 @@ import (
 
 // ================================================================================================
 
-// testWriter is a simple helper to bridge io.Writer to the testing Log func testcontainers uses
-type testWriter struct{ testCtx testing.TB }
+// buildLogWriter is a simple helper to bridge io.Writer to the testing Log func testcontainers uses
+type buildLogWriter struct{ testCtx testing.TB }
 
-// Write calls Log from the wrapped testing.TB instance with the given data
-func (rWriter testWriter) Write(data []byte) (int, error) {
+// buildLogWriter.Write calls Log from the wrapped testing.TB instance with the given data
+func (rWriter buildLogWriter) Write(data []byte) (int, error) {
 	rWriter.testCtx.Log(string(data))
 	return len(data), nil
+}
+
+// containerLogConsumer is a simple helper to bridge testcontainers.LogConsumer to the testing Log func
+//
+// TODO: make sure logs don't get logged after test exit
+type containerLogConsumer struct{ testCtx testing.TB }
+
+// containerLogConsumer.Accept calls Log from the wrapped testing.TB instance with the given log
+func (rConsumer containerLogConsumer) Accept(tcLog testcontainers.Log) {
+	rConsumer.testCtx.Logf("CONTAINER LOG [%s]: %s", tcLog.LogType, tcLog.Content)
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -69,10 +79,11 @@ func StartDockerServer(
 		testcontainers.WithDockerfile(testcontainers.FromDockerfile{
 			Context:        repoRoot(),
 			Dockerfile:     filepath.Join("deploy", "Dockerfile"),
-			BuildLogWriter: testWriter{testCtx},
+			BuildLogWriter: buildLogWriter{testCtx},
 		}),
 		testcontainers.WithExposedPorts(port),
 		testcontainers.WithWaitStrategy(wait.ForListeningPort(port).WithStartupTimeout(5*time.Second)),
+		testcontainers.WithLogConsumers(containerLogConsumer{testCtx}),
 	)
 	require.NoError(testCtx, err)
 
