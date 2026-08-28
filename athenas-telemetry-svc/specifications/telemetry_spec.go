@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/angiebrr/athenas-telemetry-svc/models"
@@ -20,30 +21,58 @@ type TelemetryIngester interface {
 	Ingest(telemetry models.Telemetry) error
 }
 
+type TelemetryQuerier interface {
+	Query(deviceID string) ([]models.Telemetry, error)
+}
+
 // ------------------------------------------------------------------------------------------------
 
-// TelemetryIngesterSpec verifies that an Ingester behaves as expected
-func TelemetryIngesterSpec(testCtx *testing.T, ingester TelemetryIngester) {
-	fakeData := models.Telemetry{
-		DeviceID:  "12345",
+func validTelemetry() models.Telemetry {
+	data := models.Telemetry{
 		Timestamp: time.Now().UnixMilli(),
 		Metrics: []models.MetricReading{
 			{Name: "temp", Value: 30.1},
 		},
 	}
+	data.DeviceID = uuid.New().String()
+	return data
+}
 
+// TelemetrySpec verifies that telemetry ingesting and querying works as expected.
+func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier TelemetryQuerier) {
 	// TODO: This asserts that invalid input fails, but not *how* it fails. Ingest has exactly one
 	// failure mode today, so "any error" and "validation error" describe the same set of outcomes.
 	// The moment M2's dispatch ring adds a second class, this assertion starts hiding real bugs --
 	// that is the trigger to give the drivers error classification, not a date on a calendar.
 
-	testCtx.Run("ingest valid telemetry", func(subTestCtx *testing.T) {
+	testCtx.Run("ingest and query valid telemetry", func(subTestCtx *testing.T) {
+		fakeData := validTelemetry()
+
 		err := ingester.Ingest(fakeData)
 		assert.NoError(subTestCtx, err)
+
+		results, err := querier.Query(fakeData.DeviceID)
+		assert.NoError(subTestCtx, err)
+		assert.Equal(subTestCtx, 1, len(results))
+		assert.Equal(subTestCtx, fakeData.DeviceID, results[0].DeviceID)
 	})
 
-	testCtx.Run("ingest invalid telemetry", func(subTestCtx *testing.T) {
-		err := ingester.Ingest(models.Telemetry{})
+	testCtx.Run("ingest and query invalid telemetry", func(subTestCtx *testing.T) {
+		fakeData := validTelemetry()
+		fakeData.DeviceID = "" // invalid telemetry: no device ID
+
+		err := ingester.Ingest(fakeData)
 		assert.Error(subTestCtx, err)
+
+		results, err := querier.Query(fakeData.DeviceID)
+		assert.Error(subTestCtx, err) // device not found
+		assert.Equal(subTestCtx, 0, len(results))
+	})
+
+	testCtx.Run("query non-existent telemetry", func(subTestCtx *testing.T) {
+		fakeData := validTelemetry()
+		results, err := querier.Query(fakeData.DeviceID)
+		assert.Error(subTestCtx, err) // device not found
+		assert.Equal(subTestCtx, 0, len(results))
 	})
 }

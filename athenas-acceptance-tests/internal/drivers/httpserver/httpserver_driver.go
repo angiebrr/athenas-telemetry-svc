@@ -4,6 +4,7 @@ package httpserver
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -80,4 +81,8 @@ func (rDriver *Driver) Ingest(data models.Telemetry) error {
 	}
 
 	return nil
+}
+
+func (rDriver *Driver) Query(deviceID string) ([]models.Telemetry, error) {
+	return nil, errors.New("Query() is not implemented yet")
 }

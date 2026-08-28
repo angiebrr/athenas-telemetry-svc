@@ -34,5 +34,5 @@ func TestAthenasTelemetryServer(testCtx *testing.T) {
 	require.NoError(testCtx, err)
 
 	// Run the driver against the telemetry spec tests
-	specifications.TelemetryIngesterSpec(testCtx, driver)
+	specifications.TelemetrySpec(testCtx, driver, driver)
 }

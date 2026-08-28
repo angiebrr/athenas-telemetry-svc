@@ -21,13 +21,20 @@ func (IngestAdapter) Ingest(data models.Telemetry) error {
 	return ingest.Ingest(data)
 }
 
+type QueryAdapter struct{}
+
+func (QueryAdapter) Query(deviceID string) ([]models.Telemetry, error) {
+	return ingest.Query(deviceID)
+}
+
 func TestIngest(testCtx *testing.T) {
-	specifications.TelemetryIngesterSpec(testCtx, IngestAdapter{})
+	specifications.TelemetrySpec(testCtx, IngestAdapter{}, QueryAdapter{})
 }
 
 // ------------------------------------------------------------------------------------------------
 
 func TestIngest_Validate(testCtx *testing.T) {
+	// TODO: Make a shared "valid telemetry" function so we can use it in both the spec tests and these unit tests
 	fakeData := models.Telemetry{
 		DeviceID:  "12345",
 		Timestamp: time.Now().UnixMilli(),
