@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/angiebrr/athenas-telemetry-svc/models"
 )
@@ -53,7 +54,7 @@ func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier Telem
 
 		results, err := querier.Query(fakeData.DeviceID)
 		assert.NoError(subTestCtx, err)
-		assert.Equal(subTestCtx, 1, len(results))
+		require.Equal(subTestCtx, 1, len(results))
 		assert.Equal(subTestCtx, fakeData.DeviceID, results[0].DeviceID)
 	})
 
