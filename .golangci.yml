@@ -92,7 +92,7 @@ linters:
       #
       # NOTE: specifications/ is included because it is test infrastructure that deliberately lives
       # in non-_test.go files, so the acceptance module can import it across the module boundary.
-      - path: (_test\.go|specifications/)
+      - path: (_test\.go|specifications/|internal/shared/test_utils\.go)
         linters: [revive]
         text: add-constant
 

@@ -5,12 +5,11 @@ package specifications
 
 import (
 	"testing"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/angiebrr/athenas-telemetry-svc/internal/shared"
 	"github.com/angiebrr/athenas-telemetry-svc/models"
 )
 
@@ -28,17 +27,6 @@ type TelemetryQuerier interface {
 
 // ------------------------------------------------------------------------------------------------
 
-func validTelemetry() models.Telemetry {
-	data := models.Telemetry{
-		Timestamp: time.Now().UnixMilli(),
-		Metrics: []models.MetricReading{
-			{Name: "temp", Value: 30.1},
-		},
-	}
-	data.DeviceID = uuid.New().String()
-	return data
-}
-
 // TelemetrySpec verifies that telemetry ingesting and querying works as expected.
 func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier TelemetryQuerier) {
 	// TODO: This asserts that invalid input fails, but not *how* it fails. Ingest has exactly one
@@ -47,7 +35,7 @@ func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier Telem
 	// that is the trigger to give the drivers error classification, not a date on a calendar.
 
 	testCtx.Run("ingest and query valid telemetry", func(subTestCtx *testing.T) {
-		fakeData := validTelemetry()
+		fakeData := shared.ValidTelemetry()
 
 		err := ingester.Ingest(fakeData)
 		assert.NoError(subTestCtx, err)
@@ -59,7 +47,7 @@ func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier Telem
 	})
 
 	testCtx.Run("ingest and query invalid telemetry", func(subTestCtx *testing.T) {
-		fakeData := validTelemetry()
+		fakeData := shared.ValidTelemetry()
 		fakeData.DeviceID = "" // invalid telemetry: no device ID
 
 		err := ingester.Ingest(fakeData)
@@ -71,7 +59,7 @@ func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier Telem
 	})
 
 	testCtx.Run("query non-existent telemetry", func(subTestCtx *testing.T) {
-		fakeData := validTelemetry()
+		fakeData := shared.ValidTelemetry()
 		results, err := querier.Query(fakeData.DeviceID)
 		assert.Error(subTestCtx, err) // device not found
 		assert.Equal(subTestCtx, 0, len(results))

@@ -2,9 +2,9 @@ package ingest_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/angiebrr/athenas-telemetry-svc/internal/ingest"
+	"github.com/angiebrr/athenas-telemetry-svc/internal/shared"
 	"github.com/angiebrr/athenas-telemetry-svc/models"
 	"github.com/angiebrr/athenas-telemetry-svc/specifications"
 	"github.com/stretchr/testify/assert"
@@ -34,14 +34,7 @@ func TestIngest(testCtx *testing.T) {
 // ------------------------------------------------------------------------------------------------
 
 func TestIngest_Validate(testCtx *testing.T) {
-	// TODO: Make a shared "valid telemetry" function so we can use it in both the spec tests and these unit tests
-	fakeData := models.Telemetry{
-		DeviceID:  "12345",
-		Timestamp: time.Now().UnixMilli(),
-		Metrics: []models.MetricReading{
-			{Name: "temp", Value: 30.1},
-		},
-	}
+	fakeData := shared.ValidTelemetry()
 
 	cases := []struct {
 		Name          string
