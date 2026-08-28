@@ -135,17 +135,19 @@ func DataStoreSpec(testCtx *testing.T, store data.TelemetryDataStorer) {
 		require.NoError(subTestCtx, err)
 		results, err := store.GetByDeviceID(sampleData1.DeviceID)
 		require.NoError(subTestCtx, err)
-		assert.Len(subTestCtx, results, 3, "device should have 3 pieces of telemetry")
+		require.Len(subTestCtx, results, 3, "device should have 3 pieces of telemetry")
 
 		// Mutate the local results array
 		results[0].DeviceID = "MUTATED"
 
-		// Get the results again, and the device ID shouldn't be mutated
+		// Get the results again, and verify none of the data points have a mutated deviced ID
 		results, err = store.GetByDeviceID(sampleData1.DeviceID)
 		require.NoError(subTestCtx, err)
-		assert.Len(subTestCtx, results, 3, "device should have 3 pieces of telemetry")
-		got := results[0].DeviceID
-		want := sampleData1.DeviceID
-		assert.Equal(subTestCtx, got, want)
+		require.Len(subTestCtx, results, 3, "device should have 3 pieces of telemetry")
+		for _, currData := range results {
+			got := currData.DeviceID
+			want := sampleData1.DeviceID
+			assert.Equal(subTestCtx, want, got)
+		}
 	})
 }
