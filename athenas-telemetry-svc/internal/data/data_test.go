@@ -13,11 +13,32 @@ import (
 
 // ================================================================================================
 
+func insertAndGet(testCtx *testing.T, newData models.Telemetry, store data.TelemetryDataStorer) {
+	testCtx.Helper()
+
+	// Insert the data and make sure it exists
+	// Note that we use "assert" instead of "require" so the go-routine doesn't silently die
+	err := store.Insert(newData)
+	if ok := assert.NoError(testCtx, err); !ok {
+		return
+	}
+	_, err = store.GetByDeviceID(newData.DeviceID)
+	assert.NoError(testCtx, err)
+}
+
+// ------------------------------------------------------------------------------------------------
+
 func TestInMemoryDataStore(testCtx *testing.T) {
 	// Create a new in-memory data store for testing
 	store := data.NewInMemoryDataStore()
 	require.NotNil(testCtx, store, "InMemoryDataStore should not be nil")
 
+	DataStoreSpec(testCtx, store)
+}
+
+// TODO: Is this really a spec if it's not acceptance and is mostly testing internals?
+// Just thought it would be good to use the same tests for in-memory and DB
+func DataStoreSpec(testCtx *testing.T, store data.TelemetryDataStorer) {
 	testCtx.Run("insert and get data from store", func(subTestCtx *testing.T) {
 		// Create a sample telemetry data
 		sampleData := shared.ValidTelemetry()
@@ -54,9 +75,7 @@ func TestInMemoryDataStore(testCtx *testing.T) {
 		sampleData2.DeviceID = sampleData1.DeviceID
 
 		// Insert both sample data entries into the store
-		err := store.Insert(sampleData1)
-		require.NoError(subTestCtx, err)
-		err = store.Insert(sampleData2)
+		err := store.Insert(sampleData1, sampleData2)
 		require.NoError(subTestCtx, err)
 
 		// Retrieve the data by device ID
@@ -80,12 +99,12 @@ func TestInMemoryDataStore(testCtx *testing.T) {
 			allOpsWg.Go(func() {
 				gateWg.Wait() // wait for all go-routines to be added
 
-				// insert and read data for new device (contend on map)
+				// insert and read data for new device
 				newData := shared.ValidTelemetry()
-				insertGetAndIterate(subTestCtx, newData, store)
+				insertAndGet(subTestCtx, newData, store)
 
-				// insert and read same device over and over (contend on map + same device array)
-				insertGetAndIterate(subTestCtx, contendedData, store)
+				// insert and read same device over and over
+				insertAndGet(subTestCtx, contendedData, store)
 			})
 		}
 		gateWg.Done()   // signal go-routines to run
@@ -101,25 +120,32 @@ func TestInMemoryDataStore(testCtx *testing.T) {
 			"contended device doesn't have the expected number of datapoints",
 		)
 	})
-}
 
-func insertGetAndIterate(testCtx *testing.T, newData models.Telemetry, store data.TelemetryDataStorer) {
-	testCtx.Helper()
+	testCtx.Run("result slice isn't leaked", func(subTestCtx *testing.T) {
+		// make 3 pieces of telemetry with the same device ID
+		// TODO: ValidTelemetry should be able to do this for us
+		sampleData1 := shared.ValidTelemetry()
+		sampleData2 := shared.ValidTelemetry()
+		sampleData3 := shared.ValidTelemetry()
+		sampleData2.DeviceID = sampleData1.DeviceID
+		sampleData3.DeviceID = sampleData1.DeviceID
 
-	// Insert the data and make sure it exists
-	// Note that we use "assert" instead of "require" so the go-routine doesn't silently die
-	err := store.Insert(newData)
-	if ok := assert.NoError(testCtx, err); !ok {
-		return
-	}
-	results, err := store.GetByDeviceID(newData.DeviceID)
-	if ok := assert.NoError(testCtx, err); !ok {
-		return
-	}
+		// Insert the sample data and try to get it
+		err := store.Insert(sampleData1, sampleData2, sampleData3)
+		require.NoError(subTestCtx, err)
+		results, err := store.GetByDeviceID(sampleData1.DeviceID)
+		require.NoError(subTestCtx, err)
+		assert.Len(subTestCtx, results, 3, "device should have 3 pieces of telemetry")
 
-	// Read data from slice to test thread-safe reads and make sure we aren't leaking backing data
-	// that isn't thread-safe
-	for _, currData := range results {
-		assert.Equal(testCtx, newData.DeviceID, currData.DeviceID)
-	}
+		// Mutate the local results array
+		results[0].DeviceID = "MUTATED"
+
+		// Get the results again, and the device ID shouldn't be mutated
+		results, err = store.GetByDeviceID(sampleData1.DeviceID)
+		require.NoError(subTestCtx, err)
+		assert.Len(subTestCtx, results, 3, "device should have 3 pieces of telemetry")
+		got := results[0].DeviceID
+		want := sampleData1.DeviceID
+		assert.Equal(subTestCtx, got, want)
+	})
 }

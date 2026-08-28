@@ -1,6 +1,7 @@
 package data
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/angiebrr/athenas-telemetry-svc/models"
@@ -51,7 +52,7 @@ func (rStore *InMemoryDataStore) GetByDeviceID(deviceID string) ([]models.Teleme
 	}
 
 	// copy over results to make sure the caller will have thread-safe reads
-	//newResults := slices.Clone(results)
+	newResults := slices.Clone(results)
 
-	return results, nil
+	return newResults, nil
 }
