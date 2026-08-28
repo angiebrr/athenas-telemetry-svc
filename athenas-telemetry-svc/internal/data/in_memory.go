@@ -1,6 +1,10 @@
 package data
 
-import "github.com/angiebrr/athenas-telemetry-svc/models"
+import (
+	"sync"
+
+	"github.com/angiebrr/athenas-telemetry-svc/models"
+)
 
 // ================================================================================================
 
@@ -16,6 +20,7 @@ func (rErr *DataNotFoundError) Error() string {
 
 type InMemoryDataStore struct {
 	data map[string][]models.Telemetry
+	mu   sync.Mutex
 }
 
 func NewInMemoryDataStore() TelemetryDataStorer {
@@ -24,15 +29,29 @@ func NewInMemoryDataStore() TelemetryDataStorer {
 	}
 }
 
-func (rStore *InMemoryDataStore) Insert(data models.Telemetry) error {
-	rStore.data[data.DeviceID] = append(rStore.data[data.DeviceID], data)
+func (rStore *InMemoryDataStore) Insert(newTelemetry ...models.Telemetry) error {
+	rStore.mu.Lock()
+	defer rStore.mu.Unlock()
+
+	for _, currData := range newTelemetry {
+		rStore.data[currData.DeviceID] = append(rStore.data[currData.DeviceID], currData)
+	}
+
 	return nil
 }
 
 func (rStore *InMemoryDataStore) GetByDeviceID(deviceID string) ([]models.Telemetry, error) {
+	rStore.mu.Lock()
+	defer rStore.mu.Unlock()
+
+	// retrieve telemetry from device
 	results, exists := rStore.data[deviceID]
 	if !exists {
 		return nil, &DataNotFoundError{DeviceID: deviceID}
 	}
+
+	// copy over results to make sure the caller will have thread-safe reads
+	//newResults := slices.Clone(results)
+
 	return results, nil
 }
