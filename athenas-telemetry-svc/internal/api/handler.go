@@ -20,6 +20,9 @@ const (
 
 // ------------------------------------------------------------------------------------------------
 
+// TODO: Add the ingester/querier as a dependency to make the dependency explicit by passing it in
+// to the handler funcs
+
 // InitHandlers registers HTTP endpoint handlers for the telemetry service.
 func InitHandlers(router *gin.Engine) {
 	router.POST(TelemetryPath, HandleIngestTelemetry)
