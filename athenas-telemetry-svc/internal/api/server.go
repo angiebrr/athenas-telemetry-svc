@@ -2,7 +2,11 @@
 // gin.Engine setup and handler initialization.
 package api
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
+)
 
 // ================================================================================================
 
@@ -10,15 +14,17 @@ import "github.com/gin-gonic/gin"
 // serve the telemetry service
 type Server struct {
 	*gin.Engine
+	dataStore data.TelemetryDataStorer
 }
 
 // NewServer creates a Server instance by setting up the gin.Engine instance and initializing its
 // handlers
-func NewServer() *Server {
+func NewServer(dataStore data.TelemetryDataStorer) *Server {
 	router := gin.Default()
-	InitHandlers(router)
+	InitHandlers(router, dataStore)
 
 	return &Server{
 		router,
+		dataStore,
 	}
 }

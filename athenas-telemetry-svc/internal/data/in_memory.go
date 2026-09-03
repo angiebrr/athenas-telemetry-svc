@@ -9,16 +9,6 @@ import (
 
 // ================================================================================================
 
-type DataNotFoundError struct {
-	DeviceID string
-}
-
-func (rErr *DataNotFoundError) Error() string {
-	return "data not found for device: " + rErr.DeviceID
-}
-
-// ------------------------------------------------------------------------------------------------
-
 type InMemoryDataStore struct {
 	data map[string][]models.Telemetry
 	mu   sync.Mutex

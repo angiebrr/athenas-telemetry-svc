@@ -6,13 +6,17 @@ import (
 	"log"
 
 	"github.com/angiebrr/athenas-telemetry-svc/internal/api"
+	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
 )
 
 // ================================================================================================
 
 func main() {
+	// TODO: Use postgres data store at some point
+	dataStore := data.NewInMemoryDataStore()
+
 	// TODO: Add server config for port and other things- listens on 0.0.0.0:8080 by default
-	server := api.NewServer()
+	server := api.NewServer(dataStore)
 
 	fmt.Println("Telemetry service is running...")
 	err := server.Run()

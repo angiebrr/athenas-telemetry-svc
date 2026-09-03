@@ -1,4 +1,4 @@
-package ingest
+package telemetry
 
 import (
 	"github.com/angiebrr/athenas-telemetry-svc/models"

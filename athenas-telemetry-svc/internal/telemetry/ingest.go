@@ -1,5 +1,5 @@
-// Package ingest owns the domain rules for accepting telemetry data.
-package ingest
+// Package telemetry owns the domain rules for accepting telemetry data.
+package telemetry
 
 import (
 	"github.com/angiebrr/athenas-telemetry-svc/internal/data"

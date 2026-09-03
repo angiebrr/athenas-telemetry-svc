@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
-	"github.com/angiebrr/athenas-telemetry-svc/internal/ingest"
+	"github.com/angiebrr/athenas-telemetry-svc/internal/telemetry"
 	"github.com/angiebrr/athenas-telemetry-svc/models"
 )
 
@@ -33,9 +33,7 @@ const (
 // to the handler funcs
 
 // InitHandlers registers HTTP endpoint handlers for the telemetry service.
-func InitHandlers(router *gin.Engine) {
-	dataStore := data.NewInMemoryDataStore()
-
+func InitHandlers(router *gin.Engine, dataStore data.TelemetryDataStorer) {
 	router.POST(TelemetryPath, func(ctx *gin.Context) {
 		HandleIngestTelemetry(ctx, dataStore)
 	})
@@ -58,11 +56,11 @@ func HandleIngestTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer)
 		return
 	}
 
-	if err := ingest.Ingest(newData, dataStore); err != nil {
+	if err := telemetry.Ingest(newData, dataStore); err != nil {
 		// if the error is a validation error, return a 400 Bad Request
 		// otherwise, return a 500 Internal Server Error
 		statusCode := http.StatusInternalServerError
-		if _, ok := errors.AsType[ingest.ValidateTelemetryError](err); ok {
+		if _, ok := errors.AsType[telemetry.ValidateTelemetryError](err); ok {
 			statusCode = http.StatusBadRequest
 		}
 		ctx.JSON(statusCode, gin.H{"error": err.Error()})
@@ -73,9 +71,9 @@ func HandleIngestTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer)
 }
 
 func HandleQueryTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer) {
-	deviceID := ctx.Param(deviceIDName) // TODO: validate deviceID param
+	deviceID := ctx.Param(deviceIDName)
 
-	queriedData, err := ingest.Query(deviceID, dataStore)
+	queriedData, err := telemetry.Query(deviceID, dataStore) // TODO: Account for device ID validation
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

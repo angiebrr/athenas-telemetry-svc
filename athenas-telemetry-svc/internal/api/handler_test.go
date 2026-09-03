@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/angiebrr/athenas-telemetry-svc/internal/api"
+	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
 	"github.com/angiebrr/athenas-telemetry-svc/models"
 )
 
@@ -47,7 +48,10 @@ func newTestServer(testCtx testing.TB) *api.Server {
 	// quiet gin debug logs during testing
 	gin.SetMode(gin.TestMode)
 
-	server := api.NewServer()
+	// use in-memory data store for the handler tests
+	dataStore := data.NewInMemoryDataStore()
+
+	server := api.NewServer(dataStore)
 	require.NotNil(testCtx, server, "server should not be nil")
 
 	return server

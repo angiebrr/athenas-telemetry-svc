@@ -1,47 +1,15 @@
-package ingest_test
+package telemetry_test
 
 import (
 	"testing"
 
-	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
-	"github.com/angiebrr/athenas-telemetry-svc/internal/ingest"
 	"github.com/angiebrr/athenas-telemetry-svc/internal/shared"
+	"github.com/angiebrr/athenas-telemetry-svc/internal/telemetry"
 	"github.com/angiebrr/athenas-telemetry-svc/models"
-	"github.com/angiebrr/athenas-telemetry-svc/specifications"
 	"github.com/stretchr/testify/assert"
 )
 
 // ================================================================================================
-
-// IngestAdapter wraps the Ingest domain logic so it can implement the TelemetryIngester interface
-// so we can use the specification tests to verify that the Ingest domain logic behaves as expected.
-type IngestAdapter struct {
-	dataStore data.TelemetryDataStorer
-}
-
-// IngestAdapter.Ingest satisfies TelemetryIngester by delegating to the package-level Ingest.
-func (rAdapter IngestAdapter) Ingest(data models.Telemetry) error {
-	return ingest.Ingest(data, rAdapter.dataStore)
-}
-
-type QueryAdapter struct {
-	dataStore data.TelemetryDataStorer
-}
-
-func (rAdapter QueryAdapter) Query(deviceID string) ([]models.Telemetry, error) {
-	return ingest.Query(deviceID, rAdapter.dataStore)
-}
-
-func TestIngest(testCtx *testing.T) {
-	dataStore := data.NewInMemoryDataStore()
-	specifications.TelemetrySpec(
-		testCtx,
-		IngestAdapter{dataStore},
-		QueryAdapter{dataStore},
-	)
-}
-
-// ------------------------------------------------------------------------------------------------
 
 func TestIngest_Validate(testCtx *testing.T) {
 	fakeData := shared.ValidTelemetry()
@@ -93,7 +61,7 @@ func TestIngest_Validate(testCtx *testing.T) {
 
 	for _, testCase := range cases {
 		testCtx.Run(testCase.Name, func(subTestCtx *testing.T) {
-			err := ingest.Validate(testCase.Data)
+			err := telemetry.Validate(testCase.Data)
 			if testCase.ExpectedError != "" {
 				assert.ErrorContains(subTestCtx, err, testCase.ExpectedError)
 			} else {
