@@ -51,17 +51,17 @@ func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier Telem
 		fakeData.DeviceID = "" // invalid telemetry: no device ID
 
 		err := ingester.Ingest(fakeData)
-		assert.Error(subTestCtx, err)
+		assert.ErrorContains(subTestCtx, err, "missing device ID")
 
 		results, err := querier.Query(fakeData.DeviceID)
-		assert.Error(subTestCtx, err) // device not found
+		assert.ErrorContains(subTestCtx, err, "missing device ID")
 		assert.Equal(subTestCtx, 0, len(results))
 	})
 
 	testCtx.Run("query non-existent telemetry", func(subTestCtx *testing.T) {
 		fakeData := shared.ValidTelemetry()
 		results, err := querier.Query(fakeData.DeviceID)
-		assert.Error(subTestCtx, err) // device not found
+		assert.ErrorContains(subTestCtx, err, "data not found")
 		assert.Equal(subTestCtx, 0, len(results))
 	})
 }

@@ -221,7 +221,10 @@ func TestHandleQueryTelemetry(testCtx *testing.T) {
 
 	testCtx.Run("rejects a query for with an empty device ID", func(subTestCtx *testing.T) {
 		// TODO: Come back to this test when we validate device IDs more than just emptiness checks since
-		// it's tricky to get gin to route a request with an empty path parameter. For now, just skip it so the test suite passes.
+		// it's tricky to get gin to route a request with an empty path parameter.
+		//
+		// For now, just skip it so the test suite passes- the spec already asserts that an empty device ID
+		// is invalid, so this is just a transport-level check.
 		subTestCtx.Skip("gin returns 404 instead of 400")
 
 		recorder := getTelemetry(server, "")
