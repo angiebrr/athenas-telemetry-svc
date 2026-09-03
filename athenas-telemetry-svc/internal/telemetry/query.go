@@ -8,7 +8,9 @@ import (
 // ================================================================================================
 
 func Query(deviceID string, dataStore data.TelemetryDataStorer) ([]models.Telemetry, error) {
-	// TODO: Validate device ID here with ErrMissingDeviceID
+	if deviceID == "" {
+		return nil, ErrQueryMissingDeviceID
+	}
 
 	data, err := dataStore.GetByDeviceID(deviceID)
 	if err != nil {

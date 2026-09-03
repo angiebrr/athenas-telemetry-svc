@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -22,9 +23,11 @@ const (
 	// This is the path that clients will POST telemetry data to.
 	TelemetryPath = "/v1/telemetry"
 
-	// QueryTelemetryPath represents the telemetry query resource HTTP path.
-	// This is the path that clients will GET telemetry data from.
-	QueryTelemetryPath = TelemetryPath + "/:" + DeviceIDPathName
+	// QueryTelemetryBasePath represents the base path for querying telemetry data, excluding the device ID path parameter.
+	QueryTelemetryBasePath = TelemetryPath
+
+	// QueryTelemetryPath represents the full path for querying telemetry data by device ID.
+	QueryTelemetryPath = QueryTelemetryBasePath + "/:" + DeviceIDPathName
 )
 
 // ------------------------------------------------------------------------------------------------
@@ -57,13 +60,19 @@ func HandleIngestTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer)
 	}
 
 	if err := telemetry.Ingest(newData, dataStore); err != nil {
-		// if the error is a validation error, return a 400 Bad Request
-		// otherwise, return a 500 Internal Server Error
-		statusCode := http.StatusInternalServerError
-		if _, ok := errors.AsType[telemetry.ValidateTelemetryError](err); ok {
+		var statusCode int
+		errMsg := err.Error()
+		if _, isErr := errors.AsType[telemetry.ValidateTelemetryError](err); isErr {
+			// if the error is a validation error, return a 400 Bad Request
 			statusCode = http.StatusBadRequest
+		} else {
+			// otherwise, just return a 500 Internal Server Error and make the error vague
+			// TODO: log the error so we can debug?
+			statusCode = http.StatusInternalServerError
+			errMsg = "internal server error"
+			slog.Warn("failed to ingest telemetry", "error", err)
 		}
-		ctx.JSON(statusCode, gin.H{"error": err.Error()})
+		ctx.JSON(statusCode, gin.H{"error": errMsg})
 		return
 	}
 
@@ -75,7 +84,22 @@ func HandleQueryTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer) 
 
 	queriedData, err := telemetry.Query(deviceID, dataStore) // TODO: Account for device ID validation
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		var statusCode int
+		errMsg := err.Error()
+		if _, isErr := errors.AsType[telemetry.ValidateTelemetryError](err); isErr {
+			// if the error is a validation error, return a 400 Bad Request
+			statusCode = http.StatusBadRequest
+		} else if _, isErr := errors.AsType[data.DataNotFoundError](err); isErr {
+			// if we couldn't find the data, return a 404 Not Found
+			statusCode = http.StatusNotFound
+		} else {
+			// otherwise, just return a 500 Internal Server Error and make the error vague
+			// TODO: log the error so we can debug?
+			statusCode = http.StatusInternalServerError
+			errMsg = "internal server error"
+			slog.Warn("failed to query telemetry", "error", err)
+		}
+		ctx.JSON(statusCode, gin.H{"error": errMsg})
 		return
 	}
 

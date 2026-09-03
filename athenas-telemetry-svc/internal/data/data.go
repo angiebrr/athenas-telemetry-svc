@@ -8,7 +8,7 @@ type DataNotFoundError struct {
 	DeviceID string
 }
 
-func (rErr *DataNotFoundError) Error() string {
+func (rErr DataNotFoundError) Error() string {
 	return "data not found for device: " + rErr.DeviceID
 }
 

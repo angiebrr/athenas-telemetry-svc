@@ -38,7 +38,7 @@ func (rStore *InMemoryDataStore) GetByDeviceID(deviceID string) ([]models.Teleme
 	// retrieve telemetry from device
 	results, exists := rStore.data[deviceID]
 	if !exists {
-		return nil, &DataNotFoundError{DeviceID: deviceID}
+		return nil, DataNotFoundError{DeviceID: deviceID}
 	}
 
 	// copy over results to make sure the caller will have thread-safe reads

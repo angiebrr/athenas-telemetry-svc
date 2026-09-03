@@ -11,7 +11,7 @@ import (
 
 // ================================================================================================
 
-func TestIngest_Validate(testCtx *testing.T) {
+func TestTelemetry_Validate(testCtx *testing.T) {
 	fakeData := shared.ValidTelemetry()
 
 	cases := []struct {
