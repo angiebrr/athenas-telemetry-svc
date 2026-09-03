@@ -1,13 +1,17 @@
 package ingest
 
 import (
-	"errors"
-
+	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
 	"github.com/angiebrr/athenas-telemetry-svc/models"
 )
 
 // ================================================================================================
 
-func Query(deviceID string) ([]models.Telemetry, error) {
-	return nil, errors.New("not implemented")
+func Query(deviceID string, dataStore data.TelemetryDataStorer) ([]models.Telemetry, error) {
+	data, err := dataStore.GetByDeviceID(deviceID)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }

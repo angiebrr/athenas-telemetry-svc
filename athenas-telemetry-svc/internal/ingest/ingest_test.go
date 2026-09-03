@@ -3,6 +3,7 @@ package ingest_test
 import (
 	"testing"
 
+	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
 	"github.com/angiebrr/athenas-telemetry-svc/internal/ingest"
 	"github.com/angiebrr/athenas-telemetry-svc/internal/shared"
 	"github.com/angiebrr/athenas-telemetry-svc/models"
@@ -14,21 +15,30 @@ import (
 
 // IngestAdapter wraps the Ingest domain logic so it can implement the TelemetryIngester interface
 // so we can use the specification tests to verify that the Ingest domain logic behaves as expected.
-type IngestAdapter struct{}
-
-// IngestAdapter.Ingest satisfies TelemetryIngester by delegating to the package-level Ingest.
-func (IngestAdapter) Ingest(data models.Telemetry) error {
-	return ingest.Ingest(data)
+type IngestAdapter struct {
+	dataStore data.TelemetryDataStorer
 }
 
-type QueryAdapter struct{}
+// IngestAdapter.Ingest satisfies TelemetryIngester by delegating to the package-level Ingest.
+func (rAdapter IngestAdapter) Ingest(data models.Telemetry) error {
+	return ingest.Ingest(data, rAdapter.dataStore)
+}
 
-func (QueryAdapter) Query(deviceID string) ([]models.Telemetry, error) {
-	return ingest.Query(deviceID)
+type QueryAdapter struct {
+	dataStore data.TelemetryDataStorer
+}
+
+func (rAdapter QueryAdapter) Query(deviceID string) ([]models.Telemetry, error) {
+	return ingest.Query(deviceID, rAdapter.dataStore)
 }
 
 func TestIngest(testCtx *testing.T) {
-	specifications.TelemetrySpec(testCtx, IngestAdapter{}, QueryAdapter{})
+	dataStore := data.NewInMemoryDataStore()
+	specifications.TelemetrySpec(
+		testCtx,
+		IngestAdapter{dataStore},
+		QueryAdapter{dataStore},
+	)
 }
 
 // ------------------------------------------------------------------------------------------------
