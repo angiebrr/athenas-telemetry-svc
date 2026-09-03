@@ -14,7 +14,7 @@ import (
 // ================================================================================================
 
 const (
-	deviceIDName = "device_id"
+	DeviceIDPathName = "device_id"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 
 	// QueryTelemetryPath represents the telemetry query resource HTTP path.
 	// This is the path that clients will GET telemetry data from.
-	QueryTelemetryPath = TelemetryPath + "/:" + deviceIDName
+	QueryTelemetryPath = TelemetryPath + "/:" + DeviceIDPathName
 )
 
 // ------------------------------------------------------------------------------------------------
@@ -71,7 +71,7 @@ func HandleIngestTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer)
 }
 
 func HandleQueryTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer) {
-	deviceID := ctx.Param(deviceIDName)
+	deviceID := ctx.Param(DeviceIDPathName)
 
 	queriedData, err := telemetry.Query(deviceID, dataStore) // TODO: Account for device ID validation
 	if err != nil {

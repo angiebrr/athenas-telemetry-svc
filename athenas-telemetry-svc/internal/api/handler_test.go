@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -77,12 +78,22 @@ func doRequest(
 func postTelemetry(
 	testCtx testing.TB,
 	server *api.Server,
-	data models.Telemetry,
+	newData models.Telemetry,
 ) *httptest.ResponseRecorder {
-	payload, err := json.Marshal(data)
+	payload, err := json.Marshal(newData)
 	require.NoError(testCtx, err, "test telemetry should serialize")
 
 	return doRequest(server, http.MethodPost, api.TelemetryPath, bytes.NewReader(payload))
+}
+
+func getTelemetry(
+	testCtx testing.TB,
+	server *api.Server,
+	deviceID string,
+) *httptest.ResponseRecorder {
+	path := api.QueryTelemetryPath
+	path = strings.Replace(path, ":"+api.DeviceIDPathName, deviceID, 1)
+	return doRequest(server, http.MethodGet, string(path), nil)
 }
 
 // decodeError pulls the message out of the handler's JSON error envelope.
@@ -171,4 +182,48 @@ func TestHandleIngestTelemetry(testCtx *testing.T) {
 			assert.Equal(subTestCtx, http.StatusNotFound, recorder.Code)
 		})
 	}
+}
+
+// ================================================================================================
+
+func TestHandleQueryTelemetry(testCtx *testing.T) {
+	server := newTestServer(testCtx)
+
+	// ---
+
+	testCtx.Run("accepts a query for a known device with 200", func(subTestCtx *testing.T) {
+		// first ingest some telemetry for the device
+		newData := validTelemetry()
+		recorder := postTelemetry(subTestCtx, server, newData)
+		assert.Equal(subTestCtx, http.StatusAccepted, recorder.Code)
+
+		// then query for it
+		recorder = getTelemetry(subTestCtx, server, newData.DeviceID)
+		assert.Equal(subTestCtx, http.StatusOK, recorder.Code)
+
+		var queriedData []models.Telemetry
+		err := json.NewDecoder(recorder.Body).Decode(&queriedData)
+		require.NoError(subTestCtx, err, "queried telemetry should deserialize")
+
+		assert.Len(subTestCtx, queriedData, 1)
+		assert.Equal(subTestCtx, newData.DeviceID, queriedData[0].DeviceID)
+		assert.Equal(subTestCtx, newData.Timestamp, queriedData[0].Timestamp)
+		assert.Equal(subTestCtx, newData.Metrics, queriedData[0].Metrics)
+	})
+
+	// ---
+
+	testCtx.Run("rejects a query for an unknown device with 404", func(subTestCtx *testing.T) {
+		recorder := getTelemetry(subTestCtx, server, "unknown-device")
+
+		assert.Equal(subTestCtx, http.StatusNotFound, recorder.Code)
+		assert.Equal(subTestCtx, "no telemetry found for device ID unknown-device", decodeError(subTestCtx, recorder))
+	})
+
+	// ---
+
+	testCtx.Run("rejects a query for with a malformed device ID", func(subTestCtx *testing.T) {
+		recorder := getTelemetry(subTestCtx, server, "z")
+		assert.Equal(subTestCtx, http.StatusBadRequest, recorder.Code)
+	})
 }
