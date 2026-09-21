@@ -13,7 +13,7 @@ import (
 
 func main() {
 	// TODO: Use postgres data store at some point
-	dataStore := data.NewInMemoryDataStore()
+	dataStore := data.NewInMemoryStore()
 
 	// TODO: Add server config for port and other things- listens on 0.0.0.0:8080 by default
 	server := api.NewServer(dataStore)

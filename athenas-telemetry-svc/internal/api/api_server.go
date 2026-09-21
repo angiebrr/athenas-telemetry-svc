@@ -14,12 +14,12 @@ import (
 // serve the telemetry service
 type Server struct {
 	*gin.Engine
-	dataStore data.TelemetryDataStorer
+	dataStore data.Storer
 }
 
 // NewServer creates a Server instance by setting up the gin.Engine instance and initializing its
 // handlers
-func NewServer(dataStore data.TelemetryDataStorer) *Server {
+func NewServer(dataStore data.Storer) *Server {
 	router := gin.Default()
 	InitHandlers(router, dataStore)
 

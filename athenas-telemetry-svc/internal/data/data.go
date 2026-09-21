@@ -18,8 +18,8 @@ func (rErr NotFoundError) Error() string {
 
 // ------------------------------------------------------------------------------------------------
 
-// TelemetryDataStorer is an interface that defines the methods for storing and retrieving telemetry data.
-type TelemetryDataStorer interface {
+// Storer is an interface that defines the methods for storing and retrieving telemetry data.
+type Storer interface {
 	// Insert adds new telemetry data to the store.
 	Insert(data ...models.Telemetry) error
 	// GetByDeviceID retrieves telemetry data for a given deviceID from the store.

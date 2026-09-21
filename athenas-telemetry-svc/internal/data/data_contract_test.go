@@ -4,16 +4,20 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
 	"github.com/angiebrr/athenas-telemetry-svc/internal/shared"
 	"github.com/angiebrr/athenas-telemetry-svc/models"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // ================================================================================================
 
-func insertAndGet(testCtx *testing.T, newData models.Telemetry, store data.TelemetryDataStorer) {
+// insertAndGet is a helper for the go-routines in our thread-safe tests to call when they are
+// doing their work. It will insert newData using the given store, and then try to retrieve
+// that inserted data from the store.
+func insertAndGet(testCtx *testing.T, newData models.Telemetry, store data.Storer) {
 	testCtx.Helper()
 
 	// Insert the data and make sure it exists
@@ -28,17 +32,12 @@ func insertAndGet(testCtx *testing.T, newData models.Telemetry, store data.Telem
 
 // ------------------------------------------------------------------------------------------------
 
-func TestInMemoryDataStore(testCtx *testing.T) {
-	// Create a new in-memory data store for testing
-	store := data.NewInMemoryDataStore()
-	require.NotNil(testCtx, store, "InMemoryDataStore should not be nil")
-
-	DataStoreSpec(testCtx, store)
-}
-
-// TODO: Is this really a spec if it's not acceptance and is mostly testing internals?
-// Just thought it would be good to use the same tests for in-memory and DB
-func DataStoreSpec(testCtx *testing.T, store data.TelemetryDataStorer) {
+// StorerContract creates a contract for how a data.Storer implementation should behave within
+// the internals of the telemetry service.
+//
+// It is intended to be used in unit tests to verify that a given implementation of the interface
+// behaves as expected (e.g. in-memory store, database-backed store, etc.)
+func StorerContract(testCtx *testing.T, store data.Storer) {
 	testCtx.Run("insert and get data from store", func(subTestCtx *testing.T) {
 		// Create a sample telemetry data
 		sampleData := shared.ValidTelemetry()
@@ -123,10 +122,10 @@ func DataStoreSpec(testCtx *testing.T, store data.TelemetryDataStorer) {
 
 	testCtx.Run("result slice isn't leaked", func(subTestCtx *testing.T) {
 		// make 3 pieces of telemetry with the same device ID
-		// TODO: ValidTelemetry should be able to do this for us
-		sampleData1 := shared.ValidTelemetry()
-		sampleData2 := shared.ValidTelemetry()
-		sampleData3 := shared.ValidTelemetry()
+		sampleResults := shared.ValidTelemetryN(3)
+		sampleData1 := sampleResults[0]
+		sampleData2 := sampleResults[1]
+		sampleData3 := sampleResults[2]
 		sampleData2.DeviceID = sampleData1.DeviceID
 		sampleData3.DeviceID = sampleData1.DeviceID
 

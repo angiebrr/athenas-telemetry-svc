@@ -21,7 +21,7 @@ func TestQueryDeviceIDs(testCtx *testing.T) {
 	testCases := []struct {
 		Name          string
 		DeviceID      string
-		SetupFn       func(dataStore data.TelemetryDataStorer) error
+		SetupFn       func(dataStore data.Storer) error
 		ExpectedError string
 	}{
 		{
@@ -32,7 +32,7 @@ func TestQueryDeviceIDs(testCtx *testing.T) {
 		{
 			Name:     "valid device ID",
 			DeviceID: "device-123",
-			SetupFn: func(dataStore data.TelemetryDataStorer) error {
+			SetupFn: func(dataStore data.Storer) error {
 				validData := shared.ValidTelemetry()
 				validData.DeviceID = "device-123"
 				return dataStore.Insert(validData)
@@ -41,7 +41,7 @@ func TestQueryDeviceIDs(testCtx *testing.T) {
 		},
 	}
 
-	dataStore := data.NewInMemoryDataStore()
+	dataStore := data.NewInMemoryStore()
 
 	for _, testCase := range testCases {
 		testCtx.Run(testCase.Name, func(subTestCtx *testing.T) {

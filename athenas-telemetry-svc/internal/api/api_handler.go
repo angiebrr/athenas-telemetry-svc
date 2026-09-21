@@ -38,7 +38,7 @@ const (
 // to the handler funcs
 
 // InitHandlers registers HTTP endpoint handlers for the telemetry service.
-func InitHandlers(router *gin.Engine, dataStore data.TelemetryDataStorer) {
+func InitHandlers(router *gin.Engine, dataStore data.Storer) {
 	router.POST(TelemetryPath, func(ctx *gin.Context) {
 		HandleIngestTelemetry(ctx, dataStore)
 	})
@@ -51,9 +51,7 @@ func InitHandlers(router *gin.Engine, dataStore data.TelemetryDataStorer) {
 
 // HandleIngestTelemetry binds and validates telemetry sent to the ingest endpoint, answering
 // 202 Accepted once the domain has taken it.
-//
-// NOTE: The payload is not persisted or dispatched anywhere yet -- see the TODO in ingest.Ingest.
-func HandleIngestTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer) {
+func HandleIngestTelemetry(ctx *gin.Context, dataStore data.Storer) {
 	// deserialize request into a telemetry model
 	var newData models.Telemetry
 	if err := ctx.ShouldBindJSON(&newData); err != nil {
@@ -69,7 +67,6 @@ func HandleIngestTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer)
 			statusCode = http.StatusBadRequest
 		} else {
 			// otherwise, just return a 500 Internal Server Error and make the error vague
-			// TODO: log the error so we can debug?
 			statusCode = http.StatusInternalServerError
 			errMsg = "internal server error"
 			slog.Warn("failed to ingest telemetry", "error", err)
@@ -82,10 +79,10 @@ func HandleIngestTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer)
 }
 
 // HandleQueryTelemetry handles requests to query telemetry data for a specific device ID.
-func HandleQueryTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer) {
+func HandleQueryTelemetry(ctx *gin.Context, dataStore data.Storer) {
 	deviceID := ctx.Param(DeviceIDPathName)
 
-	queriedData, err := telemetry.Query(deviceID, dataStore) // TODO: Account for device ID validation
+	queriedData, err := telemetry.Query(deviceID, dataStore)
 	if err != nil {
 		var statusCode int
 		errMsg := err.Error()
@@ -97,7 +94,6 @@ func HandleQueryTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer) 
 			statusCode = http.StatusNotFound
 		} else {
 			// otherwise, just return a 500 Internal Server Error and make the error vague
-			// TODO: log the error so we can debug?
 			statusCode = http.StatusInternalServerError
 			errMsg = "internal server error"
 			slog.Warn("failed to query telemetry", "error", err)

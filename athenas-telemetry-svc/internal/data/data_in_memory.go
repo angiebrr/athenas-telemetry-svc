@@ -9,12 +9,11 @@ import (
 
 // ================================================================================================
 
-// InMemoryDataStore is a simple in-memory implementation of the TelemetryDataStorer interface. It
-// is intended for use in testing and development scenarios where a persistent data store is not
-// required.
+// InMemoryStore is a simple in-memory implementation of the data.Storer interface. It is intended
+// for use in testing and development scenarios where a persistent data store is not required.
 //
 // Although it is not for production use, it is thread-safe.
-type InMemoryDataStore struct {
+type InMemoryStore struct {
 	// storedData is a map of deviceID to telemetry data for that device.
 	storedData map[string][]models.Telemetry
 
@@ -22,10 +21,10 @@ type InMemoryDataStore struct {
 	mu sync.Mutex
 }
 
-// NewInMemoryDataStore creates a new instance of InMemoryDataStore, ready for data insertions
+// NewInMemoryStore creates a new instance of InMemoryStore, ready for data insertions
 // and queries.
-func NewInMemoryDataStore() TelemetryDataStorer {
-	return &InMemoryDataStore{
+func NewInMemoryStore() *InMemoryStore {
+	return &InMemoryStore{
 		storedData: make(map[string][]models.Telemetry),
 	}
 }
@@ -33,7 +32,7 @@ func NewInMemoryDataStore() TelemetryDataStorer {
 // Insert adds new telemetry data to the in-memory store.
 //
 // It is thread-safe.
-func (rStore *InMemoryDataStore) Insert(newTelemetry ...models.Telemetry) error {
+func (rStore *InMemoryStore) Insert(newTelemetry ...models.Telemetry) error {
 	rStore.mu.Lock()
 	defer rStore.mu.Unlock()
 
@@ -50,7 +49,7 @@ func (rStore *InMemoryDataStore) Insert(newTelemetry ...models.Telemetry) error 
 //
 // The returned results are a copy so that the caller can safely read them without worrying
 // about concurrent modifications to the underlying data.
-func (rStore *InMemoryDataStore) GetByDeviceID(deviceID string) ([]models.Telemetry, error) {
+func (rStore *InMemoryStore) GetByDeviceID(deviceID string) ([]models.Telemetry, error) {
 	rStore.mu.Lock()
 	defer rStore.mu.Unlock()
 

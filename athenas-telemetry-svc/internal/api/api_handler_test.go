@@ -49,7 +49,7 @@ func newTestServer(testCtx testing.TB) *api.Server {
 	gin.SetMode(gin.TestMode)
 
 	// use in-memory data store for the handler tests
-	dataStore := data.NewInMemoryDataStore()
+	dataStore := data.NewInMemoryStore()
 
 	server := api.NewServer(dataStore)
 	require.NotNil(testCtx, server, "server should not be nil")
@@ -105,7 +105,7 @@ func decodeError(testCtx testing.TB, recorder *httptest.ResponseRecorder) string
 
 // ================================================================================================
 
-// TestHandleIngestTelemetry verifies the transport-level behaviour of the ingest endpoint: the
+// TestHandleIngestTelemetry verifies the transport-level behavior of the ingest endpoint: the
 // status codes it maps onto, and the routing it does and does not accept.
 //
 // These are deliberately the assertions the telemetry spec cannot make. The spec speaks

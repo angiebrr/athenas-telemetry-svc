@@ -29,3 +29,14 @@ func ValidTelemetry() models.Telemetry {
 
 	return data
 }
+
+// ValidTelemetryN generates a slice of n valid telemetry data objects for testing purposes.
+//
+// See ValidTelemetry for details on how each telemetry object is generated.
+func ValidTelemetryN(n int) []models.Telemetry {
+	telemetryList := make([]models.Telemetry, n)
+	for range n {
+		telemetryList = append(telemetryList, ValidTelemetry())
+	}
+	return telemetryList
+}

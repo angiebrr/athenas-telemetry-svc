@@ -11,7 +11,7 @@ import (
 //
 // It will return an error if the deviceID is empty or if no telemetry data exists for the given
 // deviceID.
-func Query(deviceID string, dataStore data.TelemetryDataStorer) ([]models.Telemetry, error) {
+func Query(deviceID string, dataStore data.Storer) ([]models.Telemetry, error) {
 	if deviceID == "" {
 		return nil, ErrMissingDeviceID
 	}

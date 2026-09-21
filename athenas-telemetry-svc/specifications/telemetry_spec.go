@@ -15,27 +15,29 @@ import (
 
 // ================================================================================================
 
-// TelemetryIngester is a system interface that is intended to be implemented for use in acceptance
-// tests (via a Driver) or in unit tests (via an Adapter)
+// TODO: docstrings for the interfaces here are weak, just restates the name which isn't helpful
+
+// TelemetryIngester is a system interface for describing the ingestion of telemetry data.
 type TelemetryIngester interface {
 	Ingest(telemetry models.Telemetry) error
 }
 
-// TelemetryQuerier is a system interface that is intended to be implemented for use in acceptance
-// tests (via a Driver) or in unit tests (via an Adapter)
+// TelemetryQuerier is a system interface for describing the querying of telemetry data.
 type TelemetryQuerier interface {
 	Query(deviceID string) ([]models.Telemetry, error)
 }
 
 // ------------------------------------------------------------------------------------------------
 
-// TelemetrySpec verifies that telemetry ingesting and querying works as expected.
+// TelemetrySpec creates a contract for how telemetry ingesting and querying should behave for the
+// service as whole, and thus should describe the high-level features of the service.
+//
+// It is intended to be used to:
+//
+//   - facilitate acceptance tests via an HTTP client + launched container (
+//     found in athenas-acceptance-tests module) OR
+//   - via "subcuteanous" unit tests that directly use the internal domain logic in this module
 func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier TelemetryQuerier) {
-	// TODO: This asserts that invalid input fails, but not *how* it fails. Ingest has exactly one
-	// failure mode today, so "any error" and "validation error" describe the same set of outcomes.
-	// The moment M2's dispatch ring adds a second class, this assertion starts hiding real bugs --
-	// that is the trigger to give the drivers error classification, not a date on a calendar.
-
 	testCtx.Run("valid telemetry is successfully ingested", func(subTestCtx *testing.T) {
 		fakeData := shared.ValidTelemetry()
 
