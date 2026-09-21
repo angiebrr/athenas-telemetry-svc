@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -14,13 +15,13 @@ import (
 
 // ================================================================================================
 
-// IngestError is a helper used to deserialize errors reported by the telemetry HTTP service
-type IngestError struct {
+// TelemetryError is a helper used to deserialize errors reported by the telemetry HTTP service
+type TelemetryError struct {
 	Err string `json:"error"`
 }
 
 // IngestError.Error simply returns the deserialized error message that was in the error key
-func (rErr IngestError) Error() string {
+func (rErr TelemetryError) Error() string {
 	return rErr.Err
 }
 
@@ -73,16 +74,56 @@ func (rDriver *Driver) Ingest(data models.Telemetry) error {
 
 	// if not successful, try to get an error from it
 	if resp.StatusCode != http.StatusAccepted {
-		var ingestErr IngestError
-		if err := json.NewDecoder(resp.Body).Decode(&ingestErr); err != nil {
-			return fmt.Errorf("failed to read response body from POST telemetry endpoint: %w", err)
-		}
-		return ingestErr
+		return decodeErrorFromBody(resp, "POST telemetry endpoint")
 	}
 
 	return nil
 }
 
+// Driver.Query calls the GET /v1/telemetry/:deviceID HTTP endpoint with the given device ID, and
+// returns the telemetry data for that device ID, or an error if there is any.
 func (rDriver *Driver) Query(deviceID string) ([]models.Telemetry, error) {
-	return nil, errors.New("Query() is not implemented yet")
+	// set up the proper endpoint, starting with the base URL
+	//
+	// NOTE: The path is deliberately hardcoded rather than shared with the service. This driver is a
+	// black-box client, so a route rename should break the acceptance suite rather than silently
+	// follow the implementation and let a breaking API change ship green.
+	ingestURL := *rDriver.BaseURL
+	ingestURL.Path = "/v1/telemetry/" + deviceID
+
+	// call our GET telemetry endpoint with the payload
+	resp, err := rDriver.Client.Get(ingestURL.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to GET at telemetry endpoint: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// if not successful, try to get an error from it
+	if resp.StatusCode != http.StatusOK {
+		return nil, decodeErrorFromBody(resp, "GET telemetry endpoint")
+	}
+
+	var results []models.Telemetry
+	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
+		return nil, fmt.Errorf("failed to read response body from GET telemetry endpoint: %w", err)
+	}
+
+	return results, nil
+}
+
+// ------------------------------------------------------------------------------------------------
+
+// decodeErrorFromBody attempts to deserialize the error from the response body, and if it fails,
+// returns a generic error with the body contents.
+func decodeErrorFromBody(resp *http.Response, src string) error {
+	var queryErr TelemetryError
+	if err := json.NewDecoder(resp.Body).Decode(&queryErr); err == nil {
+		return queryErr
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body from %s: %w", src, err)
+	}
+	return errors.New(string(bodyBytes))
 }
