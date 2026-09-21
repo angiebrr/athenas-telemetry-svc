@@ -1,0 +1,735 @@
+<title>Athena Study Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+  :root {
+    --ground:      #e9eef1;
+    --surface:     #ffffff;
+    --surface-alt: #f2f6f8;
+    --line:        #cfdae1;
+    --line-soft:   #e2eaee;
+    --ink:         #141c23;
+    --ink-soft:    #40525f;
+    --muted:       #64798a;
+    --accent:      #0d6a7a;
+    --accent-soft: #d6eaee;
+    --done:        #2c7350;
+    --done-bg:     #d9ecdf;
+    --active:      #9c5a10;
+    --active-bg:   #f7e6cc;
+    --wait:        #5d6f7d;
+    --wait-bg:     #e3e9ed;
+    --shadow:      0 1px 2px rgba(20,28,35,.06), 0 8px 24px -16px rgba(20,28,35,.28);
+
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0e141a;
+      --surface:     #161f27;
+      --surface-alt: #1c2832;
+      --line:        #2c3b47;
+      --line-soft:   #223039;
+      --ink:         #e2eaf0;
+      --ink-soft:    #b0c2ce;
+      --muted:       #8298a8;
+      --accent:      #52b6c6;
+      --accent-soft: #14323a;
+      --done:        #6cc194;
+      --done-bg:     #17322a;
+      --active:      #e0a75a;
+      --active-bg:   #35280f;
+      --wait:        #8fa3b1;
+      --wait-bg:     #212d36;
+      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #0e141a;
+    --surface:     #161f27;
+    --surface-alt: #1c2832;
+    --line:        #2c3b47;
+    --line-soft:   #223039;
+    --ink:         #e2eaf0;
+    --ink-soft:    #b0c2ce;
+    --muted:       #8298a8;
+    --accent:      #52b6c6;
+    --accent-soft: #14323a;
+    --done:        #6cc194;
+    --done-bg:     #17322a;
+    --active:      #e0a75a;
+    --active-bg:   #35280f;
+    --wait:        #8fa3b1;
+    --wait-bg:     #212d36;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: clamp(24px, 5vw, 56px) clamp(16px, 4vw, 32px) 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  h1 {
+    font-size: clamp(28px, 4.5vw, 40px);
+    line-height: 1.12;
+    letter-spacing: -.02em;
+    font-weight: 700;
+    margin: 6px 0 0;
+    text-wrap: balance;
+  }
+
+  h2 {
+    font-size: 19px;
+    letter-spacing: -.01em;
+    font-weight: 600;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -.005em;
+  }
+
+  p { margin: 0; }
+
+  a { color: var(--accent); }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    border-bottom: 2px solid var(--line);
+    padding-bottom: 24px;
+  }
+
+  .lede {
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin-top: 10px;
+  }
+
+  .statbar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--line-soft);
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 22px;
+  }
+
+  .stat {
+    background: var(--surface);
+    padding: 13px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .stat dt {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .stat dd {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat dd.mono { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+
+  /* ---------- cards ---------- */
+
+  section { display: flex; flex-direction: column; gap: 14px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+
+  /* ---------- phases ---------- */
+
+  .phases { display: flex; flex-direction: column; gap: 10px; }
+
+  .phase {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    gap: 18px;
+    padding: 18px 20px;
+    align-items: start;
+  }
+
+  .phase-num {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--line);
+    padding-top: 2px;
+  }
+
+  .phase[data-state="done"]   { border-left: 4px solid var(--done); }
+  .phase[data-state="active"] { border-left: 4px solid var(--active); }
+  .phase[data-state="wait"]   { border-left: 4px solid var(--line); }
+
+  .phase[data-state="done"]   .phase-num { color: var(--done); }
+  .phase[data-state="active"] .phase-num { color: var(--active); }
+
+  .phase-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 5px;
+  }
+
+  .phase-body { color: var(--ink-soft); font-size: 14.5px; }
+
+  .phase-evidence {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+  }
+
+  /* ---------- chips ---------- */
+
+  .chip {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .chip-done   { background: var(--done-bg);   color: var(--done); }
+  .chip-active { background: var(--active-bg); color: var(--active); }
+  .chip-wait   { background: var(--wait-bg);   color: var(--wait); }
+
+  /* ---------- next actions ---------- */
+
+  .queue { list-style: none; margin: 0; padding: 0; }
+
+  .queue li {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 14px;
+    padding: 13px 20px;
+    border-bottom: 1px solid var(--line-soft);
+    align-items: baseline;
+  }
+
+  .queue li:last-child { border-bottom: 0; }
+
+  .queue li:first-child { background: var(--surface-alt); }
+
+  .queue .idx {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .queue li:first-child .idx { color: var(--accent); }
+
+  .queue .what { font-weight: 600; font-size: 14.5px; }
+  .queue .why  { color: var(--muted); font-size: 13.5px; display: block; font-weight: 400; margin-top: 2px; }
+
+  /* ---------- reading meters ---------- */
+
+  .reading {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1px;
+    background: var(--line-soft);
+    border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .meter { background: var(--surface); padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; }
+
+  .meter-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+
+  .meter-val { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .track { height: 6px; background: var(--line-soft); border-radius: 99px; overflow: hidden; }
+
+  .fill { height: 100%; background: var(--accent); border-radius: 99px; }
+
+  .meter-note { font-size: 13px; color: var(--muted); }
+
+  /* ---------- roadmap table ---------- */
+
+  .scroll { overflow-x: auto; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 560px; }
+
+  th, td { text-align: left; padding: 11px 20px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+
+  thead th {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+
+  tbody tr:last-child td { border-bottom: 0; }
+
+  tr[data-state="done"] td:first-child,
+  tr[data-state="active"] td:first-child { font-weight: 600; }
+
+  td.ms { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+
+  td.focus { color: var(--ink-soft); }
+
+  /* ---------- two-up ---------- */
+
+  .two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+
+  .listcard { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+
+  .listcard ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 9px; }
+
+  .listcard li { font-size: 14px; color: var(--ink-soft); }
+
+  .listcard li strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- why panel ---------- */
+
+  .why-panel {
+    background: var(--accent-soft);
+    border: 1px solid var(--line-soft);
+    border-left: 4px solid var(--accent);
+    border-radius: 12px;
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .why-panel p { color: var(--ink-soft); font-size: 14.5px; max-width: 68ch; }
+
+  .why-panel strong { color: var(--ink); }
+
+  code {
+    font-family: var(--mono);
+    font-size: .88em;
+    background: var(--surface-alt);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  .why-panel code { background: var(--surface); }
+
+  .qbank { padding: 4px 0 6px; }
+
+  .qbank ol { list-style: none; margin: 0; padding: 0; counter-reset: q; }
+
+  .qbank li {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 14px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line-soft);
+    align-items: baseline;
+    counter-increment: q;
+  }
+
+  .qbank li:last-child { border-bottom: 0; }
+
+  .qbank li::before {
+    content: "Q" counter(q);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .qbank .q { font-size: 14.5px; font-weight: 500; }
+
+  .qbank .tag {
+    display: block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 3px;
+    letter-spacing: .04em;
+  }
+
+  .standard {
+    font-size: 13.5px;
+    color: var(--muted);
+    padding: 0 20px 4px;
+    max-width: 72ch;
+  }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+  }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">athenas-telemetry-svc &middot; self-directed study</p>
+    <h1>Athena Study Tracker</h1>
+    <p class="lede">
+      Where the build stands, what the reading says, and the one thing to pick up next.
+      Milestone 2 was deliberately resequenced: destination first, concurrency second, optimization last.
+    </p>
+
+    <dl class="statbar">
+      <div class="stat">
+        <dt>Milestone</dt>
+        <dd>M2 &middot; In-Memory Concurrency</dd>
+      </div>
+      <div class="stat">
+        <dt>Phase</dt>
+        <dd>1 of 3 complete</dd>
+      </div>
+      <div class="stat">
+        <dt>Branch</dt>
+        <dd class="mono">abreuer-M2-add-query</dd>
+      </div>
+      <div class="stat">
+        <dt>Last verified green</dt>
+        <dd class="mono">2026-09-21</dd>
+      </div>
+    </dl>
+  </header>
+
+  <section>
+    <h2>Milestone 2, in three phases</h2>
+    <div class="phases">
+
+      <article class="card phase" data-state="done">
+        <div class="phase-num">01</div>
+        <div>
+          <div class="phase-head">
+            <h3>Make it work</h3>
+            <span class="chip chip-done">Complete</span>
+          </div>
+          <p class="phase-body">
+            An in-memory store plus <code>GET /v1/telemetry/:device_id</code>, so ingested telemetry
+            has a destination anyone can observe. The shared Spec now runs green at all three levels.
+          </p>
+          <div class="phase-evidence">
+            <span>unit + <code>--race</code> &check;</span>
+            <span>container acceptance &check;</span>
+            <span>lint 0 issues &check;</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="card phase" data-state="active">
+        <div class="phase-num">02</div>
+        <div>
+          <div class="phase-head">
+            <h3>Make it right &mdash; the dispatch ring</h3>
+            <span class="chip chip-active">Up next</span>
+          </div>
+          <p class="phase-body">
+            Not a fix for data races &mdash; the store's mutex already handles those. The ring exists to make
+            <code>202 Accepted</code> <em>true</em>: ingestion returns before storage completes. That forces the
+            real decisions &mdash; buffered or unbuffered, what happens when the ring is full, who owns shutdown
+            and draining.
+          </p>
+          <div class="phase-evidence">
+            <span>blocked on: seam refactor, PR merge</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="card phase" data-state="wait">
+        <div class="phase-num">03</div>
+        <div>
+          <div class="phase-head">
+            <h3>Make it fast</h3>
+            <span class="chip chip-wait">Gated</span>
+          </div>
+          <p class="phase-body">
+            The charter's 100k RPS and allocation work. Opens only after
+            <code>--bench --memprofile</code> has actually run and named where allocation hurts.
+          </p>
+          <div class="phase-evidence">
+            <span>gate: measurement before optimization</span>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Work queue</h2>
+    <div class="card">
+      <ol class="queue">
+        <li>
+          <span class="idx">01</span>
+          <span class="what">Finish GOOS ch. 7
+            <span class="why">&ldquo;Achieving Object-Oriented Design&rdquo; &mdash; the chapter that describes the refactor in step 2.</span>
+          </span>
+        </li>
+        <li>
+          <span class="idx">02</span>
+          <span class="what">Seam refactor, TODO cleanup, config
+            <span class="why">One adapter carrying both operations; narrow interfaces at each handler. Domain owns the store, transport stops threading it through.</span>
+          </span>
+        </li>
+        <li>
+          <span class="idx">03</span>
+          <span class="what">PR &rarr; merge the query work
+            <span class="why">Branch is green and complete. Don't let a finished branch age against main.</span>
+          </span>
+        </li>
+        <li>
+          <span class="idx">04</span>
+          <span class="what">GOOS ch. 8 &middot; push Educative course 1
+            <span class="why">The build is ahead of the theory. Close the gap before M3, not during it.</span>
+          </span>
+        </li>
+        <li>
+          <span class="idx">05</span>
+          <span class="what">Build the dispatch ring
+            <span class="why">Phase 2. Justify buffered vs. unbuffered, ownership of close, and behavior under backpressure before writing it.</span>
+          </span>
+        </li>
+        <li>
+          <span class="idx">06</span>
+          <span class="what">PR &rarr; merge the ring</span>
+        </li>
+        <li>
+          <span class="idx">07</span>
+          <span class="what">Benchmark, then optimize
+            <span class="why">Phase 3, and M2's actual exit criterion.</span>
+          </span>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>Reading position</h2>
+    <div class="reading">
+      <div class="meter">
+        <div class="meter-top">
+          <h3>GOOS</h3>
+          <span class="meter-val">ch. 7 / 27</span>
+        </div>
+        <div class="track"><div class="fill" style="width: 26%"></div></div>
+        <p class="meter-note">M2's block is chapters 6&ndash;8. Read straight through; don't skip ahead to ch. 27 on async testing.</p>
+      </div>
+      <div class="meter">
+        <div class="meter-top">
+          <h3>Educative path</h3>
+          <span class="meter-val">course 1 / 3</span>
+        </div>
+        <div class="track"><div class="fill" style="width: 12%"></div></div>
+        <p class="meter-note">&ldquo;What distributed systems achieve for us.&rdquo; Course 1 is the lab for M1 <em>and</em> M2, and gates M3.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Why the ring is worth building by hand</h2>
+    <div class="why-panel">
+      <p>
+        Every distributed system is queues joined by networks. The decisions a single in-process queue
+        forces &mdash; bounded or unbounded, block or drop, who drains on shutdown &mdash; are the same decisions
+        SQS makes at M3, Kafka partitions make at M5, and Redis makes at M6. Building one by hand once
+        means the later ones are recognition rather than discovery.
+      </p>
+      <p>
+        It also sets a <strong>durability boundary</strong>. Today an in-memory ring means an accepted request
+        can be lost to a crash &mdash; at-most-once delivery. That is exactly the hole the outbox pattern
+        exists to close, which is why M4 comes after M2 rather than instead of it.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Questions M2 should make you able to answer</h2>
+    <div class="card qbank">
+      <p class="standard">
+        A good answer names the trade in both directions, names the failure mode the choice
+        <em>doesn't</em> cover, and says where you'd measure. A definition isn't an answer.
+      </p>
+      <ol>
+        <li><span class="q">What happens when your consumer is slower than your producer?
+          <span class="tag">backpressure vs. load shedding</span></span></li>
+        <li><span class="q">How did you size that buffer?
+          <span class="tag">Little's Law &mdash; L = &lambda;W</span></span></li>
+        <li><span class="q">Your endpoint returns 202 &mdash; what have you promised the caller, and what can still be lost?
+          <span class="tag">durability boundary &middot; at-most-once</span></span></li>
+        <li><span class="q">Buffered or unbuffered, and what does each do to tail latency under a burst?
+          <span class="tag">queueing behavior</span></span></li>
+        <li><span class="q">Who closes the channel, and why can't it be the senders?
+          <span class="tag">ownership</span></span></li>
+        <li><span class="q">How do you know your store is thread-safe? Name two failures and which tool catches each.
+          <span class="tag">data race vs. lost update</span></span></li>
+        <li><span class="q">What does <code>-race</code> prove, and what does it miss?
+          <span class="tag">no false positives, many false negatives</span></span></li>
+        <li><span class="q">Your store hands back a slice &mdash; what's the risk, and why isn't a mutex enough?
+          <span class="tag">aliasing &middot; encapsulation</span></span></li>
+        <li><span class="q">What's the production failure mode of an unbounded queue?
+          <span class="tag">OOM &middot; unbounded latency</span></span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>Milestone roadmap</h2>
+    <div class="card scroll">
+      <table>
+        <thead>
+          <tr><th>Milestone</th><th>Focus</th><th>GOOS</th><th>State</th></tr>
+        </thead>
+        <tbody>
+          <tr data-state="done">
+            <td class="ms">M1 &middot; Walking Skeleton</td>
+            <td class="focus">HTTP 202, Testcontainers E2E, four-job CI</td>
+            <td class="ms">1&ndash;5</td>
+            <td><span class="chip chip-done">Done</span></td>
+          </tr>
+          <tr data-state="active">
+            <td class="ms">M2 &middot; In-Memory Concurrency</td>
+            <td class="focus">Store, query, dispatch ring, worker pools</td>
+            <td class="ms">6&ndash;8</td>
+            <td><span class="chip chip-active">Active</span></td>
+          </tr>
+          <tr>
+            <td class="ms">M3 &middot; SQS + LocalStack</td>
+            <td class="focus">Flush buffers offline, GoMock at owned seams</td>
+            <td class="ms">9&ndash;13</td>
+            <td><span class="chip chip-wait">Gated</span></td>
+          </tr>
+          <tr>
+            <td class="ms">M4 &middot; Transactional Outbox</td>
+            <td class="focus">Atomic Postgres write, poll-and-publish workers</td>
+            <td class="ms">14&ndash;16</td>
+            <td><span class="chip chip-wait">Queued</span></td>
+          </tr>
+          <tr>
+            <td class="ms">M5 &middot; Kafka Streaming</td>
+            <td class="focus">Consumer groups, manual pause/resume backpressure</td>
+            <td class="ms">17&ndash;19</td>
+            <td><span class="chip chip-wait">Queued</span></td>
+          </tr>
+          <tr>
+            <td class="ms">M6 &middot; Kubernetes + Redis</td>
+            <td class="focus">Multi-pod, shared rate-limit state</td>
+            <td class="ms">20&ndash;24</td>
+            <td><span class="chip chip-wait">Queued</span></td>
+          </tr>
+          <tr>
+            <td class="ms">M7 &middot; CD + DORA</td>
+            <td class="focus">Pipeline, four-keys observability</td>
+            <td class="ms">25&ndash;27</td>
+            <td><span class="chip chip-wait">Queued</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Gates and open debt</h2>
+    <div class="two-up">
+
+      <div class="card listcard">
+        <h3>Gates</h3>
+        <ul>
+          <li><strong>Course 1 before M3.</strong> SQS and at-least-once delivery are course 2's lab.</li>
+          <li><strong>Benchmark before optimizing.</strong> &ldquo;I know it'll allocate&rdquo; is not a measurement.</li>
+          <li><strong>Config decision before M2 exits.</strong> It lands in the query PR, or it moves out explicitly.</li>
+        </ul>
+      </div>
+
+      <div class="card listcard">
+        <h3>Open debt</h3>
+        <ul>
+          <li><strong>Spec matches error prose, not class.</strong> Rewording a sentinel breaks the container suite. Fix is driver-carried classification.</li>
+          <li><strong>Device IDs only checked for emptiness.</strong> No format, length, or charset rules.</li>
+          <li><strong>Complexity linting off.</strong> Everything measures &le;6, so no threshold could fire. Set it from measurement once the ring lands.</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    <span>Updated 2026-09-21</span>
+    <span>Source of truth: <code>progress-log.md</code></span>
+    <span>Claude maintains both</span>
+  </footer>
+
+</div>

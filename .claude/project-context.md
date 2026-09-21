@@ -68,8 +68,8 @@ This project serves as the practical laboratory for Angie's parallel study of th
 ### Module 1: Introduction to Distributed Systems [5]
 *   **Theoretical Focus:** Core tenets of distributed processing, message formatting, and localized correctness [5].
 *   **Project Milestones:**
-    *   **Milestone 1: The Walking Skeleton (ACTIVE):** Establish a framework-decoupled, physical module boundary using Go workspaces (Path A). Wire up a Gin HTTP handler returning `202 Accepted` on `/v1/telemetry`, and write a black-box E2E test using Testcontainers-go to verify basic transport [8].
-    *   **Milestone 2: In-Memory Concurrency & Buffering:** Design an unbuffered memory dispatch ring inside `internal/engine` utilizing native **Go channels** and worker pools. Optimize memory allocation to handle 100,000 RPS by parsing metric slices directly on a concrete parent struct, bypassing dynamic maps and heap boxing.
+    *   **Milestone 1: The Walking Skeleton (COMPLETE — 2026-08-26):** Establish a framework-decoupled, physical module boundary using Go workspaces (Path A). Wire up a Gin HTTP handler returning `202 Accepted` on `/v1/telemetry`, and write a black-box E2E test using Testcontainers-go to verify basic transport [8].
+    *   **Milestone 2: In-Memory Concurrency & Buffering (ACTIVE — phase 1 of 3 complete):** Design an unbuffered memory dispatch ring inside `internal/engine` utilizing native **Go channels** and worker pools. Optimize memory allocation to handle 100,000 RPS by parsing metric slices directly on a concrete parent struct, bypassing dynamic maps and heap boxing.
 
 ### Module 2: Distributed Systems for Practitioners [5]
 *   **Theoretical Focus:** Basic protocols, distributed queues, data consistency, and event-sourced state replication [5].

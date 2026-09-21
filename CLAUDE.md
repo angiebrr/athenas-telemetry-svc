@@ -11,6 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - The milestone roadmap with its GOOS (*Growing Object-Oriented Software, Guided by Tests*) cover-to-cover reading order
 - The make-it-work → make-it-right → make-it-fast sequencing rule (benchmark before optimizing)
 - `references.md`, the annotated course reference library
+- `progress-log.md` — the living state (current milestone/phase, reading position, gates, open debt, decision record). **Claude keeps it current without being asked**, and republishes `tracker.html` alongside it.
+- The rule to teach the *why*: name the industry term, the trade-off, where the pattern recurs at a later milestone, and how it gets asked in an interview
 
 Supporting context lives in `.claude/project-context.md` (the project charter: mission, engineer profile, milestone definitions).
 
@@ -75,20 +77,30 @@ The payoff: one Spec, many Drivers. Future milestones add drivers (SQS, multi-po
 
 ### Service internals
 
-`cmd/athenas/main.go` → `api.NewServer()` (a `gin.Engine` wrapper) → `api.InitHandlers` registers `POST api.TelemetryPath` → `HandleIngestTelemetry` binds JSON, calls `ingest.Ingest`, and returns `202 Accepted`.
+`cmd/athenas/main.go` builds a `data.TelemetryDataStorer` and passes it to `api.NewServer()` (a `gin.Engine` wrapper). `api.InitHandlers` registers two routes:
 
-Transport and domain are separate as of M1. `internal/ingest` owns the rules (`Ingest` → `Validate`), and the handler only translates: `ingest.ValidateTelemetryError` becomes `400`, anything else `500`. Validation is deliberately **not** on `models.Telemetry` — `models` is exported, so a driver could otherwise call `Validate` client-side and pass the Spec without the server doing anything.
+| Route | Handler | Success |
+|---|---|---|
+| `POST api.TelemetryPath` (`/v1/telemetry`) | `HandleIngestTelemetry` | `202 Accepted` |
+| `GET api.QueryTelemetryPath` (`/v1/telemetry/:device_id`) | `HandleQueryTelemetry` | `200` + JSON array |
 
-The same `TelemetryIngesterSpec` runs at three levels: against `internal/ingest` directly (microseconds), against the gin engine via `httptest` (`internal/api/handler_test.go`, transport translation only), and against a container over real HTTP. `httpserver.Driver` **deliberately hardcodes** `/v1/telemetry` rather than importing `api.TelemetryPath` — it is a black-box client, and sharing the constant would let a route rename ship green.
+Three layers, dependencies flowing inward:
+
+- **`internal/api`** — transport only. Binds/serializes, and translates domain errors to status codes: `telemetry.ValidateTelemetryError` → `400`, `data.DataNotFoundError` → `404`, anything else → `500` with the internal text scrubbed and the real error sent to `slog`.
+- **`internal/telemetry`** — the domain rules. `Ingest` (→ `Validate` → store) and `Query` (device-ID check → store). Validation is deliberately **not** on `models.Telemetry` — `models` is exported, so a driver could otherwise call `Validate` client-side and pass the Spec without the server doing anything.
+- **`internal/data`** — the storage port (`TelemetryDataStorer`) plus `InMemoryDataStore`, a mutex-guarded `map[string][]models.Telemetry`. `GetByDeviceID` returns a **deep** copy (the outer slice *and* each record's `Metrics`), because a shallow `slices.Clone` still leaks the metrics backing array to callers. `data_test.go` holds a contract test run against the port, so M4's Postgres store can be checked against the same suite.
+
+`GET /v1/telemetry/` (empty device ID) is **not routable** — gin's radix tree won't bind `:device_id` to an empty segment, and there's no GET handler at `/v1/telemetry` to redirect to, so it 404s. Empty-device-ID validation is therefore a `telemetry.Query` unit test, not a Spec case: the HTTP driver structurally cannot express that request.
+
+The same `TelemetrySpec` runs at three levels: against `internal/telemetry` directly (microseconds), against the gin engine via `httptest` (`internal/api/handler_test.go`, transport translation only), and against a container over real HTTP. `httpserver.Driver` **deliberately hardcodes** `/v1/telemetry` rather than importing `api.TelemetryPath` — it is a black-box client, and sharing the constant would let a route rename ship green.
 
 ## Known Debt (deliberate, tracked in TODOs)
 
-Don't "fix" these unprompted — several are milestone work she plans to do herself.
+Don't "fix" these unprompted — several are milestone work she plans to do herself. Claude keeps this list current as items are resolved; see the doc-maintenance note in the `self-study-mentor` skill.
 
-- **The Spec asserts only that invalid input fails, not how.** `internal/ingest.Ingest` currently has exactly one failure mode (validation), so "any error" and "validation error" describe the same set. Once M2 adds a second class — a full dispatch ring — that assertion starts hiding real bugs, and `httpserver.Driver` needs to carry error classification so the Spec can distinguish caller-fault from callee-fault across any transport. Deliberately deferred to M2.
-- **The handler echoes internal error text on its 500 path.** Harmless while every error is a validation error; an information leak the moment `Ingest` can fail internally. Same M2 trigger as above.
-- **`HandleIngestTelemetry` discards the payload** (`// TODO: do something with data`) — Milestone 2 work.
-- **No config layer.** The port is Gin's `0.0.0.0:8080` default, and `GIN_MODE=release` is set as a bare `ENV` in the Dockerfile. Both are placeholders for real configuration, which is M2 work.
+- **The Spec matches on error prose, not error class.** `TelemetrySpec` asserts with `ErrorContains(err, "missing device ID")` / `"data not found"`, so rewording a sentinel in `internal/telemetry` breaks the container acceptance suite. The durable fix is error classification carried by `httpserver.Driver`, letting the Spec distinguish caller-fault from callee-fault across any transport without depending on the message text. Still open.
+- **No config layer.** The port is Gin's `0.0.0.0:8080` default, and `GIN_MODE=release` is set as a bare `ENV` in the Dockerfile. Both are placeholders for real configuration, nominally M2 work — decide in M2 whether it lands here or moves out explicitly.
+- **Device IDs are only checked for emptiness.** `telemetry.Query` rejects `""` and nothing else; no format, length, or charset rules. Tracked by TODOs in `handler.go` and `handler_test.go`.
 - **Complexity linting is off.** `cyclomatic`, `cognitive-complexity`, and `function-length` are disabled in `.golangci.yml` because the whole codebase currently measures ≤6 on all three, so any conventional threshold could not fire. Revisit when the dispatch ring lands and set the limit from measurement, not folklore.
 
 ## CI
