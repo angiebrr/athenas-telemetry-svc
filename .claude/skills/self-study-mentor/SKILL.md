@@ -73,7 +73,7 @@ Read GOOS cover-to-cover in this order — one contiguous chapter block per mile
 **M1 exited on 2026-08-26.** The walking skeleton is complete: HTTP `202` with validation, the Spec running at three levels (domain, `httptest` transport, container), and a four-job CI pipeline (tests, acceptance, lint, vulncheck). Deployment is explicitly scoped to M7, and that is stated in the README rather than left implicit. Do not re-litigate that scoping.
 
 Two decisions were deferred *to* M2 with a named trigger rather than a date, and both come due on the dispatch ring's first commit:
-- The Spec asserts that invalid input fails, not *how*. Correct while `ingest.Ingest` has one failure mode; starts hiding bugs the moment there is a second. The fix is error classification carried by `httpserver.Driver`, so the Spec can tell caller-fault from callee-fault across any transport.
+- The Spec now asserts *how* input fails, but by matching error prose (`ErrorContains`). That couples the container suite to sentinel wording in `internal/telemetry`. The durable fix is error classification carried by `httpserver.Driver`, so the Spec can tell caller-fault from callee-fault across any transport without depending on message text.
 - The handler echoes internal error text on its `500` path. Harmless today, an information leak as soon as `Ingest` can fail internally.
 
 Bolded chapters land unusually close to their milestone's real problem even though the order is strictly sequential rather than picked for topic fit — worth flagging the connection when we reach it, not worth reordering to chase it.

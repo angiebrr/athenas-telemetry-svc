@@ -617,6 +617,41 @@
   </section>
 
   <section>
+    <h2>Standing questions &mdash; TDD and test design</h2>
+    <div class="card qbank">
+      <p class="standard">
+        Not milestone-scoped. The vocabulary: <strong>level</strong> is acceptance / integration / unit
+        (GOOS ch.&nbsp;1); <strong>reusability</strong> is separate &mdash; a body run against many
+        implementations is a <em>contract test</em>, one written for a single implementation is a unit test.
+        <em>Solitary</em> isolates with doubles, <em>sociable</em> uses real collaborators. A working
+        stand-in is a <em>fake</em>, not a mock.
+      </p>
+      <ol>
+        <li><span class="q">How many distinct kinds of test are in this repo, and what does each buy that the others can't?
+          <span class="tag">taxonomy</span></span></li>
+        <li><span class="q">The Spec runs at three levels &mdash; what does each catch that the one beneath it can't? Which would you delete first if the suite got slow?
+          <span class="tag">pyramid &middot; cost per run</span></span></li>
+        <li><span class="q">Two things in this repo are called &ldquo;spec&rdquo; and aren't the same pattern. What's the difference?
+          <span class="tag">acceptance spec vs. contract test</span></span></li>
+        <li><span class="q">Why does <code>specifications</code> live in an exported, non-test package? What does that cost?
+          <span class="tag">importability &middot; dependency surface</span></span></li>
+        <li><span class="q">Five validation cases downstairs, one invalid-input case in the Spec. Why not all five at the top?
+          <span class="tag">combinatorics go down</span></span></li>
+        <li><span class="q">Testing against a real in-memory store &mdash; mock, stub, or fake? Why does it matter?
+          <span class="tag">test double taxonomy</span></span></li>
+        <li><span class="q">Why outside-in? What goes wrong if you build the store first?
+          <span class="tag">design pressure</span></span></li>
+        <li><span class="q">What does &ldquo;red for the right reason&rdquo; mean? Name a time yours wasn't.
+          <span class="tag">honest failure</span></span></li>
+        <li><span class="q">Your acceptance cases need no reset. How, and why beat a reset hook?
+          <span class="tag">isolation by construction</span></span></li>
+        <li><span class="q">A test was awkward to write and you changed the design instead. Walk me through it.
+          <span class="tag">listening to the tests</span></span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
     <h2>Questions M2 should make you able to answer</h2>
     <div class="card qbank">
       <p class="standard">
