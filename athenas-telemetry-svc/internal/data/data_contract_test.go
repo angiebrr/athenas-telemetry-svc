@@ -61,7 +61,7 @@ func StorerContract(testCtx *testing.T, store data.Storer) {
 	testCtx.Run("get data for non-existent device ID", func(subTestCtx *testing.T) {
 		// Attempt to retrieve data for a device ID that doesn't exist
 		retrievedData, err := store.GetByDeviceID("nonexistent_device")
-		require.Error(subTestCtx, err) // device not found
+		require.ErrorIs(subTestCtx, err, data.NotFoundError{"nonexistent_device"})
 
 		// Verify that the retrieved data is empty
 		assert.Empty(subTestCtx, retrievedData)
