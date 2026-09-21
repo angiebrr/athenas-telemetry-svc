@@ -45,7 +45,7 @@ func (rStore *InMemoryStore) Insert(newTelemetry ...models.Telemetry) error {
 
 // GetByDeviceID retrieves telemetry data for a given deviceID from the in-memory store.
 //
-// If no telemetry data exists for the given deviceID, it will return a DataNotFoundError.
+// If no telemetry data exists for the given deviceID, it will return a NotFoundError.
 //
 // The returned results are a copy so that the caller can safely read them without worrying
 // about concurrent modifications to the underlying data.

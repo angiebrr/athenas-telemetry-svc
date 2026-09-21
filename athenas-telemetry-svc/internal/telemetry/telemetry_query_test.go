@@ -42,6 +42,7 @@ func TestQueryDeviceIDs(testCtx *testing.T) {
 	}
 
 	dataStore := data.NewInMemoryStore()
+	telemetrySvc := telemetry.NewService(dataStore)
 
 	for _, testCase := range testCases {
 		testCtx.Run(testCase.Name, func(subTestCtx *testing.T) {
@@ -52,7 +53,7 @@ func TestQueryDeviceIDs(testCtx *testing.T) {
 			}
 
 			// execute the query and validate our expectations for the test
-			results, err := telemetry.Query(testCase.DeviceID, dataStore)
+			results, err := telemetrySvc.Query(testCase.DeviceID)
 			if testCase.ExpectedError != "" {
 				assert.Error(subTestCtx, err)
 				assert.ErrorContains(subTestCtx, err, testCase.ExpectedError)

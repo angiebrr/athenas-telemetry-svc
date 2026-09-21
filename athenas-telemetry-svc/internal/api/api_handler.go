@@ -34,16 +34,13 @@ const (
 
 // ------------------------------------------------------------------------------------------------
 
-// TODO: Add the ingester/querier as a dependency to make the dependency explicit by passing it in
-// to the handler funcs
-
 // InitHandlers registers HTTP endpoint handlers for the telemetry service.
-func InitHandlers(router *gin.Engine, dataStore data.Storer) {
+func InitHandlers(router *gin.Engine, telemetrySvc *telemetry.Service) {
 	router.POST(TelemetryPath, func(ctx *gin.Context) {
-		HandleIngestTelemetry(ctx, dataStore)
+		HandleIngestTelemetry(ctx, telemetrySvc)
 	})
 	router.GET(QueryTelemetryPath, func(ctx *gin.Context) {
-		HandleQueryTelemetry(ctx, dataStore)
+		HandleQueryTelemetry(ctx, telemetrySvc)
 	})
 }
 
@@ -51,7 +48,7 @@ func InitHandlers(router *gin.Engine, dataStore data.Storer) {
 
 // HandleIngestTelemetry binds and validates telemetry sent to the ingest endpoint, answering
 // 202 Accepted once the domain has taken it.
-func HandleIngestTelemetry(ctx *gin.Context, dataStore data.Storer) {
+func HandleIngestTelemetry(ctx *gin.Context, telemetrySvc *telemetry.Service) {
 	// deserialize request into a telemetry model
 	var newData models.Telemetry
 	if err := ctx.ShouldBindJSON(&newData); err != nil {
@@ -59,7 +56,7 @@ func HandleIngestTelemetry(ctx *gin.Context, dataStore data.Storer) {
 		return
 	}
 
-	if err := telemetry.Ingest(newData, dataStore); err != nil {
+	if err := telemetrySvc.Ingest(newData); err != nil {
 		var statusCode int
 		errMsg := err.Error()
 		if _, isErr := errors.AsType[telemetry.ValidateTelemetryError](err); isErr {
@@ -79,10 +76,10 @@ func HandleIngestTelemetry(ctx *gin.Context, dataStore data.Storer) {
 }
 
 // HandleQueryTelemetry handles requests to query telemetry data for a specific device ID.
-func HandleQueryTelemetry(ctx *gin.Context, dataStore data.Storer) {
+func HandleQueryTelemetry(ctx *gin.Context, telemetrySvc *telemetry.Service) {
 	deviceID := ctx.Param(DeviceIDPathName)
 
-	queriedData, err := telemetry.Query(deviceID, dataStore)
+	queriedData, err := telemetrySvc.Query(deviceID)
 	if err != nil {
 		var statusCode int
 		errMsg := err.Error()

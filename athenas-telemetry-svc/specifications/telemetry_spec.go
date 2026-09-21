@@ -34,8 +34,8 @@ type TelemetryQuerier interface {
 //
 // It is intended to be used to:
 //
-//   - facilitate acceptance tests via an HTTP client + launched container (
-//     found in athenas-acceptance-tests module) OR
+//   - facilitate acceptance tests via an HTTP client + launched container
+//     (found in athenas-acceptance-tests module) OR
 //   - via "subcuteanous" unit tests that directly use the internal domain logic in this module
 func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier TelemetryQuerier) {
 	testCtx.Run("valid telemetry is successfully ingested", func(subTestCtx *testing.T) {

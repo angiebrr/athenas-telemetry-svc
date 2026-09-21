@@ -15,6 +15,7 @@ import (
 
 	"github.com/angiebrr/athenas-telemetry-svc/internal/api"
 	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
+	"github.com/angiebrr/athenas-telemetry-svc/internal/telemetry"
 	"github.com/angiebrr/athenas-telemetry-svc/models"
 )
 
@@ -50,8 +51,9 @@ func newTestServer(testCtx testing.TB) *api.Server {
 
 	// use in-memory data store for the handler tests
 	dataStore := data.NewInMemoryStore()
+	telemetrySvc := telemetry.NewService(dataStore)
 
-	server := api.NewServer(dataStore)
+	server := api.NewServer(telemetrySvc)
 	require.NotNil(testCtx, server, "server should not be nil")
 
 	return server
