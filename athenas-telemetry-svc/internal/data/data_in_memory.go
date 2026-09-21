@@ -61,7 +61,13 @@ func (rStore *InMemoryDataStore) GetByDeviceID(deviceID string) ([]models.Teleme
 	}
 
 	// copy over results to make sure the caller will have thread-safe reads
-	newResults := slices.Clone(results)
+	//
+	// NOTE: can't just use slices.Clone(results) because we need a deepy-copy
+	clonedResults := make([]models.Telemetry, len(results))
+	for idx, currData := range results {
+		clonedResults[idx] = currData
+		clonedResults[idx].Metrics = slices.Clone(currData.Metrics)
+	}
 
-	return newResults, nil
+	return clonedResults, nil
 }
