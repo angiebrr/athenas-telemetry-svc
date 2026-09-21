@@ -9,14 +9,10 @@ import (
 // ================================================================================================
 
 // Ingest is the internal domain logic for ingesting telemetry data.
-func Ingest(data models.Telemetry, dataStore data.TelemetryDataStorer) error {
-	if err := Validate(data); err != nil {
+func Ingest(dataToIngest models.Telemetry, dataStore data.TelemetryDataStorer) error {
+	if err := Validate(dataToIngest); err != nil {
 		return err
 	}
 
-	if err := dataStore.Insert(data); err != nil {
-		return err
-	}
-
-	return nil
+	return dataStore.Insert(dataToIngest)
 }

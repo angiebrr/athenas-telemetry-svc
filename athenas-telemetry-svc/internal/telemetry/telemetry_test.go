@@ -22,16 +22,21 @@ func (rAdapter IngestAdapter) Ingest(newData models.Telemetry) error {
 	return telemetry.Ingest(newData, rAdapter.dataStore)
 }
 
+// QueryAdapter wraps the Query domain logic so it can implement the TelemetryQuerier interface
+// so we can use the specification tests to verify that the Query domain logic behaves as expected.
 type QueryAdapter struct {
 	dataStore data.TelemetryDataStorer
 }
 
+// QueryAdapter.Query satisfies TelemetryQuerier by delegating to the package-level Query.
 func (rAdapter QueryAdapter) Query(deviceID string) ([]models.Telemetry, error) {
 	return telemetry.Query(deviceID, rAdapter.dataStore)
 }
 
 // ------------------------------------------------------------------------------------------------
 
+// TestTelemetryActions runs the TelemetrySpec against the Ingest and Query domain logic as unit
+// teststo verify that the system behaves as expected.
 func TestTelemetryActions(testCtx *testing.T) {
 	dataStore := data.NewInMemoryDataStore()
 	specifications.TelemetrySpec(

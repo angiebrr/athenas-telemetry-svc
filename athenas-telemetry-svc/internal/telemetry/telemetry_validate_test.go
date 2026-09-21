@@ -11,6 +11,11 @@ import (
 
 // ================================================================================================
 
+// TestTelemetry_Validate tests the Validate function used to ensure that telemetry data is valid
+// before it is ingested into the system.
+//
+// Note that this is separate from spec tests since it should be tested in isolation and is an
+// implementation detail of the system.
 func TestTelemetry_Validate(testCtx *testing.T) {
 	fakeData := shared.ValidTelemetry()
 

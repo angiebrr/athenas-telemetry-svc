@@ -14,17 +14,19 @@ import (
 
 // ================================================================================================
 
-const (
-	DeviceIDPathName = "device_id"
-)
-
+// Path constants for the telemetry service API endpoints.
 const (
 	// TelemetryPath represents the telemetry ingestion resource HTTP path.
 	// This is the path that clients will POST telemetry data to.
 	TelemetryPath = "/v1/telemetry"
 
-	// QueryTelemetryBasePath represents the base path for querying telemetry data, excluding the device ID path parameter.
+	// QueryTelemetryBasePath represents the base path for querying telemetry data, excluding the
+	// device ID path parameter.
 	QueryTelemetryBasePath = TelemetryPath
+
+	// DeviceIDPathName is the name of the path parameter used to specify the device ID when querying
+	// telemetry data.
+	DeviceIDPathName = "device_id"
 
 	// QueryTelemetryPath represents the full path for querying telemetry data by device ID.
 	QueryTelemetryPath = QueryTelemetryBasePath + "/:" + DeviceIDPathName
@@ -79,6 +81,7 @@ func HandleIngestTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer)
 	ctx.Status(http.StatusAccepted)
 }
 
+// HandleQueryTelemetry handles requests to query telemetry data for a specific device ID.
 func HandleQueryTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer) {
 	deviceID := ctx.Param(DeviceIDPathName)
 
@@ -89,7 +92,7 @@ func HandleQueryTelemetry(ctx *gin.Context, dataStore data.TelemetryDataStorer) 
 		if _, isErr := errors.AsType[telemetry.ValidateTelemetryError](err); isErr {
 			// if the error is a validation error, return a 400 Bad Request
 			statusCode = http.StatusBadRequest
-		} else if _, isErr := errors.AsType[data.DataNotFoundError](err); isErr {
+		} else if _, isErr := errors.AsType[data.NotFoundError](err); isErr {
 			// if we couldn't find the data, return a 404 Not Found
 			statusCode = http.StatusNotFound
 		} else {
