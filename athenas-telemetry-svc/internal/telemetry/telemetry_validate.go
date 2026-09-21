@@ -28,11 +28,6 @@ var (
 	ErrMissingMetricName = ValidateTelemetryError{err: "missing metric name"}
 )
 
-var (
-	// ErrQueryMissingDeviceID is returned when the telemetry data is missing a device ID
-	ErrQueryMissingDeviceID = ValidateTelemetryError{err: "missing device ID"}
-)
-
 // ------------------------------------------------------------------------------------------------
 
 // Validate verifies that the telemetry data is valid and returns an error if it is not.

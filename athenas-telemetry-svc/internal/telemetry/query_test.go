@@ -55,8 +55,11 @@ func TestQueryDeviceIDs(testCtx *testing.T) {
 			results, err := telemetry.Query(testCase.DeviceID, dataStore)
 			if testCase.ExpectedError != "" {
 				assert.Error(subTestCtx, err)
+				assert.ErrorContains(subTestCtx, err, testCase.ExpectedError)
 			} else {
 				assert.NoError(subTestCtx, err)
+				// the results don't matter for this test, since that's covered in spec tests, but
+				// we can at least assert that we got some results back for a valid device ID
 				assert.NotNil(subTestCtx, results)
 			}
 		})

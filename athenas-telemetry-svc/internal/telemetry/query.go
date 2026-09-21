@@ -13,7 +13,7 @@ import (
 // deviceID.
 func Query(deviceID string, dataStore data.TelemetryDataStorer) ([]models.Telemetry, error) {
 	if deviceID == "" {
-		return nil, ErrQueryMissingDeviceID
+		return nil, ErrMissingDeviceID
 	}
 
 	results, err := dataStore.GetByDeviceID(deviceID)
