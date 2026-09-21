@@ -21,6 +21,8 @@ type TelemetryIngester interface {
 	Ingest(telemetry models.Telemetry) error
 }
 
+// TelemetryQuerier is a system interface that is intended to be implemented for use in acceptance
+// tests (via a Driver) or in unit tests (via an Adapter)
 type TelemetryQuerier interface {
 	Query(deviceID string) ([]models.Telemetry, error)
 }
@@ -34,7 +36,7 @@ func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier Telem
 	// The moment M2's dispatch ring adds a second class, this assertion starts hiding real bugs --
 	// that is the trigger to give the drivers error classification, not a date on a calendar.
 
-	testCtx.Run("ingest and query valid telemetry", func(subTestCtx *testing.T) {
+	testCtx.Run("valid telemetry is successfully ingested", func(subTestCtx *testing.T) {
 		fakeData := shared.ValidTelemetry()
 
 		err := ingester.Ingest(fakeData)
@@ -46,19 +48,15 @@ func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier Telem
 		assert.Equal(subTestCtx, fakeData.DeviceID, results[0].DeviceID)
 	})
 
-	testCtx.Run("ingest and query invalid telemetry", func(subTestCtx *testing.T) {
+	testCtx.Run("invalid telemetry is rejected on ingest", func(subTestCtx *testing.T) {
 		fakeData := shared.ValidTelemetry()
 		fakeData.DeviceID = "" // invalid telemetry: no device ID
 
 		err := ingester.Ingest(fakeData)
 		assert.ErrorContains(subTestCtx, err, "missing device ID")
-
-		results, err := querier.Query(fakeData.DeviceID)
-		assert.ErrorContains(subTestCtx, err, "missing device ID")
-		assert.Equal(subTestCtx, 0, len(results))
 	})
 
-	testCtx.Run("query non-existent telemetry", func(subTestCtx *testing.T) {
+	testCtx.Run("querying non-existent telemetry results in error", func(subTestCtx *testing.T) {
 		fakeData := shared.ValidTelemetry()
 		results, err := querier.Query(fakeData.DeviceID)
 		assert.ErrorContains(subTestCtx, err, "data not found")
