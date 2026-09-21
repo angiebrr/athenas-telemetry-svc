@@ -116,14 +116,17 @@ func (rDriver *Driver) Query(deviceID string) ([]models.Telemetry, error) {
 // decodeErrorFromBody attempts to deserialize the error from the response body, and if it fails,
 // returns a generic error with the body contents.
 func decodeErrorFromBody(resp *http.Response, src string) error {
-	var queryErr TelemetryError
-	if err := json.NewDecoder(resp.Body).Decode(&queryErr); err == nil {
-		return queryErr
-	}
-
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body from %s: %w", src, err)
 	}
-	return errors.New(string(bodyBytes))
+
+	// try to deserialize the error from the response body, and if it fails, return the raw body
+	var queryErr TelemetryError
+	if err := json.Unmarshal(bodyBytes, &queryErr); err != nil {
+		return errors.New(string(bodyBytes))
+	}
+
+	// otherwise, return the deserialized TelemetryError
+	return queryErr
 }
