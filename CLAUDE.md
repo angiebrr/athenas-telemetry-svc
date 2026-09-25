@@ -44,7 +44,7 @@ Tests run with `-count=1` by default (`--no-force` to allow the cache).
 
 The project list lives once in `[vars] projects` in `mise.toml` and is templated into every task, so adding a third go project means editing one line.
 
-Editor tooling (`dlv`, `gopls`) is declared in `mise.dev.toml`, not `mise.toml` — run `MISE_ENV=dev mise install` locally to get it. CI sets no `MISE_ENV`, so `jdx/mise-action` installs only the Go toolchain and golangci-lint.
+Editor tooling (`dlv`, `gopls`) is declared in `mise.dev.toml`, not `mise.toml` — run `MISE_ENV=dev mise install` locally to get it. The workspace file maps the Go extension's tools to these by bare name via `go.alternateTools` (with auto-updates off) — without that, the extension `go install`s its own copies into GOBIN (mise's Go `bin/`), which shadows the mise pins; that's how a v1 golangci-lint once ran against the v2 config. CI sets no `MISE_ENV`, so `jdx/mise-action` installs only the Go toolchain and golangci-lint.
 
 Linting is configured repo-wide in `.golangci.yml` (golangci-lint **v2** schema; the version is pinned in `mise.toml` so the editor and CI agree). revive runs with `enable-all-rules`, minus a short disabled list documented inline. The `exported` rule is configured with `disableChecksOnMethods` specifically so the repo's `Type.Method does X` comment convention keeps working.
 
