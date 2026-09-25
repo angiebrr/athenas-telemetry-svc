@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/angiebrr/athenas-telemetry-svc/internal/api"
+	"github.com/angiebrr/athenas-telemetry-svc/internal/config"
 	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
 	"github.com/angiebrr/athenas-telemetry-svc/internal/telemetry"
 )
@@ -13,16 +14,23 @@ import (
 // ================================================================================================
 
 func main() {
+	// Get env vars / .env files and throw them in a Config struct
+	conf, err := config.InitEnv()
+	if err != nil {
+		log.Fatalf("failed to init env: %v", err)
+	}
+
+	// Set up the backend service that manages the telemetry
 	// TODO: Use postgres data store at some point
 	dataStore := data.NewInMemoryStore()
 	telemetrySvc := telemetry.NewService(dataStore)
 
-	// TODO: Add server config for port and other things- listens on 0.0.0.0:8080 by default
+	// Set up the HTTP server that serves the telemetry from the backend service
 	server := api.NewServer(telemetrySvc)
 
 	fmt.Println("Telemetry service is running...")
-	err := server.Run()
+	err = server.Run(fmt.Sprintf(":%d", conf.Port))
 	if err != nil {
-		log.Fatalf("Failed to run telemetry service: %v", err)
+		log.Fatalf("failed to run telemetry service: %v", err)
 	}
 }

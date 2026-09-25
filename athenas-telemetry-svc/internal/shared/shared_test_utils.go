@@ -17,7 +17,8 @@ import (
 // It creates a random device ID as a UUID, a current unix timestamp, and a single metric reading
 // with a random temperature value between 0 and 120.
 func ValidTelemetry() models.Telemetry {
-	randTemp := rand.Float64() * 120.0 // rand temp from 0. to 120.
+	const maxTemp = 120.0
+	randTemp := rand.Float64() * maxTemp
 
 	data := models.Telemetry{
 		DeviceID:  uuid.New().String(),
