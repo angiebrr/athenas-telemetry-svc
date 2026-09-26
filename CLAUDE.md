@@ -77,7 +77,7 @@ The payoff: one Spec, many Drivers. Future milestones add drivers (SQS, multi-po
 
 ### Service internals
 
-`cmd/athenas/main.go` loads an `AppConfig` via `config.InitEnv()`, builds a `data.Storer` and passes it to `api.NewServer()` (a `gin.Engine` wrapper). `api.InitHandlers` registers two routes:
+`cmd/athenas/main.go` loads an `AppConfig` (`PORT`, `APP_ENV` ∈ `dev`/`prod`) via `config.InitEnv()`, builds a `data.Storer`, maps `APP_ENV` to a gin mode (`prod` → release, else debug), and passes both to `api.NewServer()` (a `gin.Engine` wrapper). The environment-to-mode translation lives in `main`, the composition root, so `internal/api` never learns environment names. The image sets `APP_ENV=prod`, so the acceptance suite runs the release configuration. The variable is prefixed because POSIX `sh` reserves `ENV`. `api.InitHandlers` registers two routes:
 
 | Route | Handler | Success |
 |---|---|---|
@@ -116,8 +116,8 @@ Two kinds of artifact, and conflating them is the usual source of confusion:
 Don't "fix" these unprompted — several are milestone work she plans to do herself. Claude keeps this list current as items are resolved; see the doc-maintenance note in the `self-study-mentor` skill.
 
 - **The Spec matches on error prose, not error class.** `TelemetrySpec` asserts with `ErrorContains(err, "missing device ID")` / `"data not found"`, so rewording a sentinel in `internal/telemetry` breaks the container acceptance suite. The durable fix is error classification carried by `httpserver.Driver`, letting the Spec distinguish caller-fault from callee-fault across any transport without depending on the message text. Still open.
-- **`GIN_MODE` is outside the config layer.** `internal/config` (viper; precedence defaults < `.env` < env vars, `.env` optional) now supplies the port, but `GIN_MODE=release` is still a bare `ENV` in the Dockerfile. Fold it in when the next setting is added.
 - **Device IDs are only checked for emptiness.** `telemetry.Query` rejects `""` and nothing else; no format, length, or charset rules. Tracked by TODOs in `api_handler.go` and `api_handler_test.go`.
+- **`Ingest`'s success promise is provisional.** The `TelemetryIngester` doc comment carries a TODO: whether a nil return guarantees immediate queryability is undecided until the dispatch ring's first commit.
 - **Complexity linting is off.** `cyclomatic`, `cognitive-complexity`, and `function-length` are disabled in `.golangci.yml` because the whole codebase currently measures ≤6 on all three, so any conventional threshold could not fire. Revisit when the dispatch ring lands and set the limit from measurement, not folklore.
 
 ## CI

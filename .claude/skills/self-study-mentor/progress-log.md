@@ -2,7 +2,7 @@
 
 Living state for `athenas-telemetry-svc`. **Claude maintains this file** — see "Keep the Log Current" in SKILL.md. Everything here is mutable and dated; SKILL.md holds only the durable method, so the skill stays reusable.
 
-Published tracker: `.claude/skills/self-study-mentor/tracker.html` (Artifact).
+Published tracker: `.claude/skills/self-study-mentor/tracker.html` → https://claude.ai/artifact/4DEea8wrLBwpdkRu9mV1Qk (republish to this URL; don't create a new one).
 
 ---
 
@@ -12,7 +12,7 @@ Published tracker: `.claude/skills/self-study-mentor/tracker.html` (Artifact).
 - **Branch:** `abreuer-M2-add-query`
 - **GOOS:** ch. 7 in progress (M2's range is 6–8)
 - **Educative:** Course 1, "What distributed systems achieve for us" (early)
-- **Last verified:** 2026-09-26 — `internal/config` tests green, acceptance container suite green (boots with no `.env`, falls back to defaults), lint **8 revive findings** in the service module, all missing doc comments in `internal/config` (acceptance module 0). Last full `--race` run: 2026-09-21.
+- **Last verified:** 2026-09-26 — full `mise run test` green at `fac44eb` (the `APP_ENV`/gin-mode change, including the new `APP_ENV` config case) (all five service packages and the acceptance container suite). Lint 0 issues in both modules. Container logs checked by hand: no `[GIN-debug]` lines, so release mode is active. Last full `--race` run: 2026-09-21.
 
 ---
 
@@ -46,7 +46,7 @@ A seam refactor sits between phases 1 and 2: `HandleQueryTelemetry` currently ho
 
 - **Course 1 before M3.** SQS and at-least-once delivery are course 2's lab; starting M3 on an unfinished course 1 is where "theory leads" stops being advisory.
 - **Benchmark before optimizing.** M2 phase 3 only opens after `--bench --memprofile` has run. "I know it'll allocate" is not a measurement.
-- ~~**Config decision before M2 exits.**~~ **Met 2026-09-26** — `internal/config` landed on `abreuer-M2-add-query` (port only). `GIN_MODE` is still a bare Dockerfile `ENV`; carried as debt below.
+- ~~**Config decision before M2 exits.**~~ **Met 2026-09-26** — `internal/config` landed on `abreuer-M2-add-query` (port only). `GIN_MODE` folded in on 2026-09-26 via `ENV` (see Decision Record).
 
 ---
 
@@ -54,9 +54,9 @@ A seam refactor sits between phases 1 and 2: `HandleQueryTelemetry` currently ho
 
 Mirrors CLAUDE.md's Known Debt; kept here with dates and triggers.
 
-- **Spec matches on error prose, not error class.** `ErrorContains(err, "missing device ID")` couples the container acceptance suite to sentinel wording. Durable fix is error classification carried by `httpserver.Driver`. Open since 2026-08-26.
+- **Spec matches on error prose, not error class.** `ErrorContains(err, "missing device ID")` couples the container acceptance suite to sentinel wording. Durable fix is error classification carried by `httpserver.Driver`. Open since 2026-08-26. The domain unit tests moved to `ErrorIs` on the sentinels on 2026-09-26 (`863e66b`), so this now affects only the Spec and container suite.
 - **Device IDs only checked for emptiness.** No format/length/charset rules. TODOs in `api_handler.go` and `api_handler_test.go`.
-- **`GIN_MODE` not in the config layer.** Still a bare `ENV` in `deploy/Dockerfile`. Small; fold in when the next setting is added. Since 2026-09-26.
+- **`Ingest`'s success promise is provisional.** Port doc comments on `TelemetryIngester`/`TelemetryQuerier` written 2026-09-26 (role, contract, not-found error). What a nil `Ingest` guarantees (read-your-writes vs. accepted-only) is left as a TODO in `telemetry_spec.go`, undecided until the dispatch ring exists. Trigger: the ring's first commit, alongside the error-classification item.
 - **Complexity linting off.** Whole codebase measures ≤6 on cyclomatic/cognitive/function-length, so no conventional threshold could fire. Revisit when the ring lands; set the limit from measurement.
 
 ---
@@ -75,7 +75,7 @@ Not milestone-scoped; these recur at every milestone and the answers get richer 
 - `TelemetrySpec` runs at three levels. What does each level catch that the one beneath it can't? If the suite got too slow, which would you delete first, and what risk would you be accepting?
 - `specifications.TelemetrySpec` and `data.DataStoreSpec` are both called "spec" and are not the same pattern. What's the difference?
 - Why does `specifications` live in an exported, non-test package instead of a `_test.go` file? What does that cost you, and who else does this?
-- Your validation table has five cases; the Spec has one invalid-input case. Why don't all five run at the acceptance level?
+- Your validation table has seven cases; the Spec has one invalid-input case. Why don't all seven run at the acceptance level?
 - When `telemetry.Query` is tested against a real in-memory store, is that a mock, a stub, or a fake? Why does the distinction matter here?
 - Why outside-in rather than inside-out? What goes wrong if you build the store first?
 - What does "red for the right reason" mean? Give a case where a test of yours failed for the *wrong* reason and how you noticed.
@@ -107,6 +107,9 @@ Not milestone-scoped; these recur at every milestone and the answers get richer 
 - Where does your service get its configuration, and in what precedence order? What happens if the config file is missing?
 - Your first config test passed while production ignored every env var. Why, and what did you change so the test couldn't miss it again?
 - What's the risk of logging the parsed config at startup?
+- Why is the environment baked into your image as `prod`, and what does 12-factor say about that? Why is it `APP_ENV` and not `ENV`?
+- Where does "prod means release mode" live, and why there rather than in the HTTP layer?
+- A timestamp of `0` is now rejected. Why is Go's zero value a validation problem at a JSON boundary? What other options were there (pointer fields, `omitempty`, a presence check), and what do you lose by treating zero as "missing"?
 
 ### M3–M7 — seeded as each milestone opens
 
@@ -138,3 +141,7 @@ Current, tied to the decision in front of her. Short — one at a time.
 - **2026-09-21 — Doc maintenance delegated to Claude.** Prose upkeep isn't the learning target; stale docs are worse than none.
 - **2026-09-26 — Mechanical test changes opened to Claude, on explicit request only.** Table-driven conversions and testable examples for code she already wrote. The learning is in deciding what to assert, not in typing out the table. The limits keep it mechanical: `_test.go` only, never the Spec, no added or dropped cases, suite green before and after. Any gap Claude spots gets named, and she writes the fix. Each use gets noted here so the record of what she wrote stays accurate. Public note is in `docs/self-study.md`. Same day, a working checklist was added to the skill, because a test refactor has no test of its own. It only runs on green. She defines the table's shape or the example's usage. Subtest names must match one-to-one. One case is broken on purpose to prove the table still asserts. Each change lands as its own `refactor:` commit.
 - **2026-09-26 — Config: defaults < `.env` < env vars, and the file is optional.** 12-factor factor III: the environment is authoritative, and a missing `.env` is a warning, not a fatal, because the container never has one (verified by the acceptance suite). The defaults setup function was made non-injectable after an injected test double hid a bug where production defaults went to viper's global instance, so every env var was silently ignored. Tests now exercise the real defaults. Lesson worth keeping: an injectable seam can let a test replace the code it was meant to check.
+- **2026-09-26 — Timestamp `0` is invalid (`863e66b`).** `Validate` now rejects `Timestamp <= 0`. Go decodes a missing JSON `timestamp` to `0`, so accepting `0` meant "no timestamp" was silently accepted as the 1970 epoch. The cost: a device that really does report epoch 0 (for example after a clock reset) is rejected, which is the right failure direction. The alternative, a `*int64` field that can tell "absent" from "zero", was not taken. It would have changed the exported `models` type. Note that this shipped in a `refactor:` commit together with new test cases, although it is a behavior change.
+- **2026-09-26 — Mechanical change (Claude): `TestAppConfigValidate` port cases rebased on `validCfg`.** Angie set the shape (the `func(cfg) … (validCfg)` override on "system port"); Claude applied it to the other three port cases so they stop failing on an empty `Env`. Same 6 subtests before and after, no cases added or dropped. The sabotage check (setting the max-boundary case to `+1`) failed only that subtest. Done mid-cycle at her request, before the `ENV` work was committed.
+- **2026-09-26 — Mechanical change (Claude): `TestTelemetry_Validate` overrides moved to `telemetry_helpers_test.go`.** This follows the shape Angie set in `config_helpers_test.go`: unexported `telemetryWith<Field>` copy helpers kept in a `_test.go` file. `shared.ValidTelemetry` stays exported because the Spec, which is not a test file, calls it. Same 5 subtests before and after. The sabotage check (timestamp `-1` → `1`) failed only that subtest. Lint shows 0 issues. Gaps named and left for her: a zero timestamp, an empty non-nil `Metrics` slice, a bad metric that isn't first in the list, and `ErrorIs` on the sentinels instead of matching the error text.
+- **2026-09-26 — `APP_ENV` (`dev`/`prod`) drives gin mode; the image sets `APP_ENV=prod` (`fac44eb`; `ValidTelemetryN` fix in `e113d69`).** This resolves the `GIN_MODE` debt. `main` maps the environment to a gin mode and passes that to `api.NewServer`, so `api` doesn't import `config`. The variable was first named `ENV` and was renamed because POSIX `sh` uses `ENV`. Baking `prod` into the image makes the shipped artifact safe by default, and the acceptance suite now tests the configuration that ships. The cost is that the image claims to be prod wherever it runs unless `ENV` is overridden at deploy time (12-factor V: build, release, run). Also fixed the same day: `ValidTelemetryN` no longer returns 2n items. `gin.SetMode` is still process-global, which is accepted for now. A `TestConfigInit` case now sets `APP_ENV=prod`, which isn't the default. That closes the gap where nothing proved the variable is read, and it would catch the struct tag and `EnvName` falling out of sync.

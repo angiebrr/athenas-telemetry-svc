@@ -462,7 +462,7 @@
       </div>
       <div class="stat">
         <dt>Last verified</dt>
-        <dd class="mono">2026-09-26 &middot; lint: 8 doc comments</dd>
+        <dd class="mono">2026-09-26 &middot; all green &middot; lint 0</dd>
       </div>
     </dl>
   </header>
@@ -635,7 +635,7 @@
           <span class="tag">acceptance spec vs. contract test</span></span></li>
         <li><span class="q">Why does <code>specifications</code> live in an exported, non-test package? What does that cost?
           <span class="tag">importability &middot; dependency surface</span></span></li>
-        <li><span class="q">Five validation cases downstairs, one invalid-input case in the Spec. Why not all five at the top?
+        <li><span class="q">Seven validation cases downstairs, one invalid-input case in the Spec. Why not all seven at the top?
           <span class="tag">combinatorics go down</span></span></li>
         <li><span class="q">Testing against a real in-memory store &mdash; mock, stub, or fake? Why does it matter?
           <span class="tag">test double taxonomy</span></span></li>
@@ -745,7 +745,7 @@
         <ul>
           <li><strong>Course 1 before M3.</strong> SQS and at-least-once delivery are course 2's lab.</li>
           <li><strong>Benchmark before optimizing.</strong> &ldquo;I know it'll allocate&rdquo; is not a measurement.</li>
-          <li><strong><s>Config decision before M2 exits.</s></strong> Met 2026-09-26: port config landed, env &gt; <code>.env</code> &gt; defaults.</li>
+          <li><strong><s>Config decision before M2 exits.</s></strong> Met 2026-09-26: <code>PORT</code> and <code>APP_ENV</code> in config, env &gt; <code>.env</code> &gt; defaults; gin mode follows <code>APP_ENV</code>.</li>
         </ul>
       </div>
 
@@ -754,7 +754,7 @@
         <ul>
           <li><strong>Spec matches error prose, not class.</strong> Rewording a sentinel breaks the container suite. Fix is driver-carried classification.</li>
           <li><strong>Device IDs only checked for emptiness.</strong> No format, length, or charset rules.</li>
-          <li><strong><code>GIN_MODE</code> not in config.</strong> Still a bare Dockerfile <code>ENV</code>; fold in with the next setting.</li>
+          <li><strong><code>Ingest</code>'s promise is provisional.</strong> Port docs written; whether nil means queryable-now waits on the ring's first commit.</li>
           <li><strong>Complexity linting off.</strong> Everything measures &le;6, so no threshold could fire. Set it from measurement once the ring lands.</li>
         </ul>
       </div>
