@@ -10,11 +10,11 @@ import (
 // ================================================================================================
 
 const (
-	// EnvPort is the name of the viper config / env var value for the app's port
-	EnvPort = "PORT"
+	// PortName is the name of the viper config / env var value for the app's port
+	PortName = "PORT"
 
-	// EnvEnv is the name of the viper config / env var value for the app's environment
-	EnvEnv = "ENV"
+	// EnvName is the name of the viper config / env var value for the app's environment
+	EnvName = "APP_ENV"
 )
 
 const (
@@ -26,11 +26,11 @@ const (
 	MaxPortThreshold = 65535
 
 	// DefaultEnv is the default env value used for viper (see setAppConfigDefaults)
-	DefaultEnv = ValidEnvDev
-	// ValidEnvDev is the name for the dev env
-	ValidEnvDev = "dev"
-	// ValidEnvProd is the name for the prod env
-	ValidEnvProd = "prod"
+	DefaultEnv = EnvDev
+	// EnvDev is the name for the dev env
+	EnvDev = "dev"
+	// EnvProd is the name for the prod env
+	EnvProd = "prod"
 )
 
 // ------------------------------------------------------------------------------------------------
@@ -47,8 +47,8 @@ func DefaultAppConfig() AppConfig {
 // viper instance
 func setAppConfigDefaults(viperIns *viper.Viper) {
 	defaultCfg := DefaultAppConfig()
-	viperIns.SetDefault(EnvPort, defaultCfg.Port)
-	viperIns.SetDefault(EnvEnv, defaultCfg.Env)
+	viperIns.SetDefault(PortName, defaultCfg.Port)
+	viperIns.SetDefault(EnvName, defaultCfg.Env)
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -56,16 +56,16 @@ func setAppConfigDefaults(viperIns *viper.Viper) {
 // AppConfig represents the possible values we can use for configuring the telemetry service via
 // env vars and a dotenv file.
 type AppConfig struct {
-	Port int    `mapstructure:"PORT"` // The port thate the service is running on
-	Env  string `mapstructure:"ENV"`  // The environment that the service is running in
+	Port int    `mapstructure:"PORT"`    // The port that the service is running on
+	Env  string `mapstructure:"APP_ENV"` // The environment that the service is running in
 }
 
 // AppConfig.Validate returns whether or not the parsed config is valid
 func (rCfg AppConfig) Validate() error {
 	if rCfg.Port < MinPortSystemThreshold || rCfg.Port > MaxPortThreshold {
 		errMsg := shared.FormatString(
-			"{PORT_NAME} must be between {MIN} and {MAX} [{PORT_NAME}={PORT_VALUE}]",
-			"PORT_NAME", EnvPort,
+			"{PORT_NAME} must be between {MIN} and {MAX}. [{PORT_NAME}={PORT_VALUE}]",
+			"PORT_NAME", PortName,
 			"PORT_VALUE", rCfg.Port,
 			"MIN", MinPortSystemThreshold,
 			"MAX", MaxPortThreshold,
@@ -74,14 +74,14 @@ func (rCfg AppConfig) Validate() error {
 	}
 
 	switch rCfg.Env {
-	case ValidEnvDev, ValidEnvProd:
+	case EnvDev, EnvProd:
 	default:
 		errMsg := shared.FormatString(
-			"{ENV_NAME} is must be either {DEV} {PROD} [{ENV_NAME}={ENV_VALUE}]",
-			"ENV_NAME", EnvEnv,
+			"{ENV_NAME} must be either {DEV} or {PROD}. [{ENV_NAME}={ENV_VALUE}]",
+			"ENV_NAME", EnvName,
 			"ENV_VALUE", rCfg.Env,
-			"DEV", ValidEnvDev,
-			"PROD", ValidEnvProd,
+			"DEV", EnvDev,
+			"PROD", EnvProd,
 		)
 		return errors.New(errMsg)
 	}

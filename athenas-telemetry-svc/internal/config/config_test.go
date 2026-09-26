@@ -58,7 +58,7 @@ func TestConfigInit(testCtx *testing.T) {
 		{
 			Name: "only env var sets PORT",
 			EnvVars: map[string]string{
-				config.EnvPort: "7070",
+				config.PortName: "7070",
 			},
 			ExpectedCfg: configWithPort(validCfg, 7070),
 		},
@@ -66,16 +66,23 @@ func TestConfigInit(testCtx *testing.T) {
 			Name:           "env var takes precedence over .env",
 			DotEnvContents: "PORT=9090",
 			EnvVars: map[string]string{
-				config.EnvPort: "7070",
+				config.PortName: "7070",
 			},
 			ExpectedCfg: configWithPort(validCfg, 7070),
 		},
 		{
 			Name: "env vars sets invalid port",
 			EnvVars: map[string]string{
-				config.EnvPort: "100",
+				config.PortName: "100",
 			},
-			ExpectedError: config.EnvPort, // expect an error that has the port env var name in it
+			ExpectedError: config.PortName, // expect an error that has the port env var name in it
+		},
+		{
+			Name: "only env var sets APP_ENV",
+			EnvVars: map[string]string{
+				config.EnvName: config.EnvProd,
+			},
+			ExpectedCfg: configWithEnv(validCfg, config.EnvProd),
 		},
 	}
 

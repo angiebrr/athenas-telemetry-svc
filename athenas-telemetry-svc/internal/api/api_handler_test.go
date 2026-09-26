@@ -53,7 +53,7 @@ func newTestServer(testCtx testing.TB) *api.Server {
 	dataStore := data.NewInMemoryStore()
 	telemetrySvc := telemetry.NewService(dataStore)
 
-	server := api.NewServer(telemetrySvc)
+	server := api.NewServer(telemetrySvc, gin.TestMode)
 	require.NotNil(testCtx, server, "server should not be nil")
 
 	return server

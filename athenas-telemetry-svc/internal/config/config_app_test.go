@@ -25,7 +25,7 @@ func TestAppConfigValidate(testCtx *testing.T) {
 		{
 			Name:          "invalid config: under min port",
 			InputCfg:      configWithPort(validCfg, config.MinPortSystemThreshold-1),
-			ExpectedError: config.EnvPort,
+			ExpectedError: config.PortName,
 		},
 		{
 			Name:     "valid config: at min port",
@@ -34,7 +34,7 @@ func TestAppConfigValidate(testCtx *testing.T) {
 		{
 			Name:          "invalid config: above max port",
 			InputCfg:      configWithPort(validCfg, config.MaxPortThreshold+1),
-			ExpectedError: config.EnvPort,
+			ExpectedError: config.PortName,
 		},
 		{
 			Name:     "valid config: at max port",
@@ -43,7 +43,7 @@ func TestAppConfigValidate(testCtx *testing.T) {
 		{
 			Name:          "invalid config: bad environment",
 			InputCfg:      configWithEnv(validCfg, "venus"),
-			ExpectedError: config.EnvEnv,
+			ExpectedError: config.EnvName,
 		},
 	}
 

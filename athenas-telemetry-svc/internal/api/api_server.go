@@ -18,8 +18,9 @@ type Server struct {
 }
 
 // NewServer creates a Server instance by setting up the gin.Engine instance and initializing its
-// handlers
-func NewServer(telemetrySvc *telemetry.Service) *Server {
+// handlers.
+func NewServer(telemetrySvc *telemetry.Service, ginMode string) *Server {
+	gin.SetMode(ginMode)
 	router := gin.Default()
 	InitHandlers(router, telemetrySvc)
 
