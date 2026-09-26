@@ -22,53 +22,52 @@ func TestTelemetry_Validate(testCtx *testing.T) {
 	cases := []struct {
 		Name          string
 		Data          models.Telemetry
-		ExpectedError string
+		ExpectedError error
 	}{
 		{
 			Name: "simple metric reading",
 			Data: fakeData,
 		},
 		{
-			Name: "invalid metric reading: no metrics",
-			Data: func(input models.Telemetry) models.Telemetry {
-				input.Metrics = nil
-				return input
-			}(fakeData),
-			ExpectedError: "missing metrics",
+			Name:          "invalid metric reading: nil metrics",
+			Data:          telemetryWithMetrics(fakeData, nil),
+			ExpectedError: telemetry.ErrMissingMetrics,
 		},
 		{
-			Name: "invalid metric reading: no device ID",
-			Data: func(input models.Telemetry) models.Telemetry {
-				input.DeviceID = ""
-				return input
-			}(fakeData),
-			ExpectedError: "missing device ID",
+			Name:          "invalid metric reading: no metrics",
+			Data:          telemetryWithMetrics(fakeData, []models.MetricReading{}),
+			ExpectedError: telemetry.ErrMissingMetrics,
 		},
 		{
-			Name: "invalid metric reading: invalid timestamp",
-			Data: func(input models.Telemetry) models.Telemetry {
-				input.Timestamp = -1
-				return input
-			}(fakeData),
-			ExpectedError: "invalid timestamp",
+			Name:          "invalid metric reading: no device ID",
+			Data:          telemetryWithDeviceID(fakeData, ""),
+			ExpectedError: telemetry.ErrMissingDeviceID,
+		},
+		{
+			Name:          "invalid metric reading: invalid timestamp",
+			Data:          telemetryWithTimestamp(fakeData, -1),
+			ExpectedError: telemetry.ErrInvalidTimestamp,
+		},
+		{
+			Name:          "invalid metric reading: missing timestamp",
+			Data:          telemetryWithTimestamp(fakeData, 0),
+			ExpectedError: telemetry.ErrInvalidTimestamp,
 		},
 		{
 			Name: "invalid metric reading: missing metric name",
-			Data: func(input models.Telemetry) models.Telemetry {
-				input.Metrics = []models.MetricReading{
-					{Name: "", Value: 30.1},
-				}
-				return input
-			}(fakeData),
-			ExpectedError: "missing metric name",
+			Data: telemetryWithMetrics(fakeData, []models.MetricReading{
+				{Name: "uptimeSecs", Value: 1000.},
+				{Name: "", Value: 30.1},
+			}),
+			ExpectedError: telemetry.ErrMissingMetricName,
 		},
 	}
 
 	for _, testCase := range cases {
 		testCtx.Run(testCase.Name, func(subTestCtx *testing.T) {
 			err := telemetry.Validate(testCase.Data)
-			if testCase.ExpectedError != "" {
-				assert.ErrorContains(subTestCtx, err, testCase.ExpectedError)
+			if testCase.ExpectedError != nil {
+				assert.ErrorIs(subTestCtx, err, testCase.ExpectedError)
 			} else {
 				assert.NoError(subTestCtx, err)
 			}
