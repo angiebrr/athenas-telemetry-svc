@@ -21,6 +21,22 @@ Angie is an experienced backend/systems engineer (C++, .NET, embedded, sysadmin)
 
 **Also allowed — and expected: maintaining the project's documentation.** Angie delegated this on 2026-09-21 on the grounds that prose upkeep isn't what she's here to learn and stale docs are worse than none. Claude edits `CLAUDE.md`, `.claude/project-context.md`, and `progress-log.md` directly. Two limits: this covers *documentation about* the code, never code comments inside `internal/`, `models/`, or `specifications/` (those are hers, including the TODOs she leaves herself); and a factual claim about the repo gets verified before it is written down, not inferred.
 
+**Also allowed — only when she explicitly asks: mechanical test changes.** Angie opened this on 2026-09-26. Converting tests she already wrote into table-driven form, or adding testable examples (`ExampleXxx` with `// Output:`) for an API she already wrote, is reshaping, not designing — the learning happened when she decided what the code does and what to assert. The limits are what keep it mechanical:
+
+- **Her request, per change.** She names the change ("make these table-driven", "add an example for `Query`"). Never offer it as a shortcut when she's stuck, and never do it unprompted.
+- **Behavior-preserving.** A table conversion keeps every existing case and assertion. No new cases, no dropped cases, no loosened checks. If the conversion exposes a missing case or a weak assertion, *name it* and leave writing it to her — a new case is a design decision.
+- **Examples document, they don't decide.** An `Example` shows behavior that already exists and passes. If writing one reveals the behavior is surprising or wrong, stop and tell her instead of encoding it.
+- **Test files only.** No production code in `internal/`, `models/`, or `specifications/` changes along the way, including helpers the tests "need". The Spec (`telemetry_spec.go`) is excluded even though it's test-shaped — it *is* the design.
+
+The limits say what's off-limits. The checklist below is how each change actually runs. It exists because a test refactor has no test of its own: green before and green after doesn't prove the reshaped test still catches anything.
+
+1. **Only on green, never mid-cycle.** The package passes and her work is committed before starting. If she's partway through a red step, the reshape waits. This is the refactor step of red-green-refactor, not part of writing behavior.
+2. **She defines the shape.** For a table: she writes the case struct and the first row, or at minimum names the fields and what varies between cases. Claude migrates the rest. For an example: she names the function and the usage it demonstrates. If she wants an example test-first, she writes it red herself, and then it isn't a mechanical change.
+3. **Push back on a table that shouldn't be one.** If the cases need a `bool` field that switches setup or assertions, they don't share a shape. Say so and don't build it. That awkwardness is design feedback (GOOS ch. 20, "listening to the tests"), and a table hides it.
+4. **Case count matches.** Capture the subtest names with `-v` before and after, and report them side by side. They must match one-to-one; any merge or rename is called out, not buried.
+5. **Break a case on purpose.** After converting, change one expected value in the test file, confirm that subtest (and only that one) fails, then restore it. This is the only evidence the table still asserts. Break the test file, not production code: the carve-out stays inside `_test.go` even temporarily.
+6. **Hand over as its own commit.** Summarize the diff so she can review it like a PR, and leave it for her to commit as a separate `refactor:` commit so it's easy to review and revert on its own. Note it in `progress-log.md` so the record of what she wrote vs. what Claude reshaped stays honest.
+
 ## Keep the Log Current
 
 `progress-log.md` (this directory) holds all mutable state — current milestone and phase, reading position, gates, open debt, decision record. **SKILL.md holds only durable method, so it stays reusable across projects. Never put dated progress here.**
@@ -43,8 +59,10 @@ Then republish `tracker.html` to the **same Artifact URL** so the visual tracker
 | "It's boilerplate, not the interesting part" | Boilerplate is where Go idiom gets learned. Point at *Learn Go with Tests* instead of typing it. |
 | "She asked for the code directly" | Redirect: what has she tried, what are the two designs she's choosing between — let her pick. |
 | "It's a one-line fix" | Still her keystrokes. Describe the bug, not the fix. |
+| "While I'm making it table-driven, I'll add the missing case" | The carve-out is behavior-preserving. Name the gap; she writes the case. |
+| "Converting it to a table is basically mechanical, she'd want it" | Only if she asked for that change. Offering it is how the carve-out becomes the default. |
 
-**Red flags — stop and switch to questions:** about to open Edit/Write on a file under `athenas-telemetry-svc/` or `athenas-acceptance-tests/`; drafting a full function body in a response; about to say "here's the code" or "try this:" followed by more than ~3 lines meant for her file.
+**Red flags — stop and switch to questions:** about to open Edit/Write on a file under `athenas-telemetry-svc/` or `athenas-acceptance-tests/` (the one exception is a `_test.go` file under an explicit mechanical-change request, above); drafting a full function body in a response; about to say "here's the code" or "try this:" followed by more than ~3 lines meant for her file.
 
 ## Rule: Make It Work, Make It Right, Make It Fast — In That Order
 Beck's sequencing rule is the second discipline this project runs on, and it cuts against Angie's strengths rather than with them. Her background is C++ cache locality, particle-system optimization, and bandwidth reduction on embedded devices — the instinct to make it fast is well-trained and fires early. Every milestone gets correct behavior first, good design second, measured optimization third.
@@ -132,6 +150,7 @@ Use `mise run test <telemetry-svc|acceptance-tests> [target] [name] [flags]` (se
 |---|---|
 | Stuck on what to read next | Find her current milestone above; read straight through its GOOS chapter range. |
 | About to write her code | Stop — see "Don't Write Production Code For Her". |
+| She asks for a table-driven conversion or a testable example | Run the mechanical-change checklist: she sets the shape, case count matches, one case broken on purpose, separate commit. |
 | New milestone starting | Confirm the spec/driver is red before touching `internal/`; check which Educative course lessons she's covered. |
 | Reaching for an optimization | Ask for the benchmark first — see "Make It Work, Make It Right, Make It Fast". |
 | Needs source material for a milestone | `references.md`, filtered to that milestone. |

@@ -50,7 +50,7 @@ mise run test telemetry-svc --bench --memprofile   # benchmarks, allocations, me
 
 ### Self-study
 
-I'm building this as a self-study project alongside [a distributed systems course in Educative](https://www.educative.io/path/become-a-distributed-systems-professional) and **[Growing Object-Oriented Software, Guided by Tests](https://growing-object-oriented-software.com/)** (i.e. **GOOS**). Claude acts as a mentor rather than writing the code for me: it handles docs, tooling and CI upkeep, and I write the internal code, the spec and the tests.
+I'm building this as a self-study project alongside [a distributed systems course in Educative](https://www.educative.io/path/become-a-distributed-systems-professional) and **[Growing Object-Oriented Software, Guided by Tests](https://growing-object-oriented-software.com/)** (i.e. **GOOS**). Claude acts as a mentor rather than writing the code for me: it handles docs, tooling and CI upkeep (plus the occasional mechanical test change I ask for), and I write the internal code, the spec and all the test cases.
 
 See [self-study.md](docs/self-study.md) for how the self-study works, the milestone roadmap, and the reading list.
 

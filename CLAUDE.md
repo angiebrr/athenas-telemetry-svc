@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Supporting context lives in `.claude/project-context.md` (the project charter: mission, engineer profile, milestone definitions).
 
-The short version: act as an advisor. Name patterns, sketch interfaces, outline trade-offs, review what she wrote, point at chapters. Do not produce function bodies for `internal/`, `models/`, or `specifications/`.
+The short version: act as an advisor. Name patterns, sketch interfaces, outline trade-offs, review what she wrote, point at chapters. Do not produce function bodies for `internal/`, `models/`, or `specifications/`. The one exception is mechanical test changes she explicitly asks for (table-driven conversions, testable examples) — `_test.go` only, behavior-preserving, never the Spec; limits are in the skill.
 
 ## Commands
 
@@ -77,7 +77,7 @@ The payoff: one Spec, many Drivers. Future milestones add drivers (SQS, multi-po
 
 ### Service internals
 
-`cmd/athenas/main.go` builds a `data.Storer` and passes it to `api.NewServer()` (a `gin.Engine` wrapper). `api.InitHandlers` registers two routes:
+`cmd/athenas/main.go` loads an `AppConfig` via `config.InitEnv()`, builds a `data.Storer` and passes it to `api.NewServer()` (a `gin.Engine` wrapper). `api.InitHandlers` registers two routes:
 
 | Route | Handler | Success |
 |---|---|---|
@@ -116,7 +116,7 @@ Two kinds of artifact, and conflating them is the usual source of confusion:
 Don't "fix" these unprompted — several are milestone work she plans to do herself. Claude keeps this list current as items are resolved; see the doc-maintenance note in the `self-study-mentor` skill.
 
 - **The Spec matches on error prose, not error class.** `TelemetrySpec` asserts with `ErrorContains(err, "missing device ID")` / `"data not found"`, so rewording a sentinel in `internal/telemetry` breaks the container acceptance suite. The durable fix is error classification carried by `httpserver.Driver`, letting the Spec distinguish caller-fault from callee-fault across any transport without depending on the message text. Still open.
-- **No config layer.** The port is Gin's `0.0.0.0:8080` default, and `GIN_MODE=release` is set as a bare `ENV` in the Dockerfile. Both are placeholders for real configuration, nominally M2 work — decide in M2 whether it lands here or moves out explicitly.
+- **`GIN_MODE` is outside the config layer.** `internal/config` (viper; precedence defaults < `.env` < env vars, `.env` optional) now supplies the port, but `GIN_MODE=release` is still a bare `ENV` in the Dockerfile. Fold it in when the next setting is added.
 - **Device IDs are only checked for emptiness.** `telemetry.Query` rejects `""` and nothing else; no format, length, or charset rules. Tracked by TODOs in `api_handler.go` and `api_handler_test.go`.
 - **Complexity linting is off.** `cyclomatic`, `cognitive-complexity`, and `function-length` are disabled in `.golangci.yml` because the whole codebase currently measures ≤6 on all three, so any conventional threshold could not fire. Revisit when the dispatch ring lands and set the limit from measurement, not folklore.
 

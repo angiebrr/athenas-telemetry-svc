@@ -12,7 +12,7 @@ Published tracker: `.claude/skills/self-study-mentor/tracker.html` (Artifact).
 - **Branch:** `abreuer-M2-add-query`
 - **GOOS:** ch. 7 in progress (M2's range is 6–8)
 - **Educative:** Course 1, "What distributed systems achieve for us" (early)
-- **Last verified green:** 2026-09-21 — unit tests `--race`, acceptance container suite, lint 0 issues both modules
+- **Last verified:** 2026-09-26 — `internal/config` tests green, acceptance container suite green (boots with no `.env`, falls back to defaults), lint **8 revive findings** in the service module, all missing doc comments in `internal/config` (acceptance module 0). Last full `--race` run: 2026-09-21.
 
 ---
 
@@ -46,7 +46,7 @@ A seam refactor sits between phases 1 and 2: `HandleQueryTelemetry` currently ho
 
 - **Course 1 before M3.** SQS and at-least-once delivery are course 2's lab; starting M3 on an unfinished course 1 is where "theory leads" stops being advisory.
 - **Benchmark before optimizing.** M2 phase 3 only opens after `--bench --memprofile` has run. "I know it'll allocate" is not a measurement.
-- **Config decision before M2 exits.** `main.go:18`'s TODO — CLAUDE.md has always scoped config as M2 work. It lands, or it moves out explicitly. (Angie plans to include a quick config in the query PR — 2026-09-21.)
+- ~~**Config decision before M2 exits.**~~ **Met 2026-09-26** — `internal/config` landed on `abreuer-M2-add-query` (port only). `GIN_MODE` is still a bare Dockerfile `ENV`; carried as debt below.
 
 ---
 
@@ -56,6 +56,7 @@ Mirrors CLAUDE.md's Known Debt; kept here with dates and triggers.
 
 - **Spec matches on error prose, not error class.** `ErrorContains(err, "missing device ID")` couples the container acceptance suite to sentinel wording. Durable fix is error classification carried by `httpserver.Driver`. Open since 2026-08-26.
 - **Device IDs only checked for emptiness.** No format/length/charset rules. TODOs in `api_handler.go` and `api_handler_test.go`.
+- **`GIN_MODE` not in the config layer.** Still a bare `ENV` in `deploy/Dockerfile`. Small; fold in when the next setting is added. Since 2026-09-26.
 - **Complexity linting off.** Whole codebase measures ≤6 on cyclomatic/cognitive/function-length, so no conventional threshold could fire. Revisit when the ring lands; set the limit from measurement.
 
 ---
@@ -103,6 +104,10 @@ Not milestone-scoped; these recur at every milestone and the answers get richer 
 - What's the production failure mode of an unbounded queue?
 - Why a mutex here rather than a single owning goroutine? When would you switch?
 
+- Where does your service get its configuration, and in what precedence order? What happens if the config file is missing?
+- Your first config test passed while production ignored every env var. Why, and what did you change so the test couldn't miss it again?
+- What's the risk of logging the parsed config at startup?
+
 ### M3–M7 — seeded as each milestone opens
 
 - **M3:** at-least-once vs. exactly-once; why consumers must be idempotent; what a visibility timeout buys.
@@ -131,3 +136,5 @@ Current, tied to the decision in front of her. Short — one at a time.
 - **2026-09-03 — Empty device ID moved out of the Spec.** `GET /v1/telemetry/` 404s; gin won't bind `:device_id` to an empty segment. The HTTP driver structurally cannot express that request, so it's a `telemetry.Query` unit test, not a system promise. (Option B of three; option C — query params instead of path params — stays open for when filtering is needed.)
 - **2026-09-21 — Transport dropped out of Spec coverage.** `api_handler_test.go` no longer runs `TelemetrySpec`; it has hand-written status-code cases instead. Defensible (spec = behavior, handler tests = translation), but CLAUDE.md's "three levels" claim was stale and is corrected to two. Revisit if transport behavior starts drifting from the spec.
 - **2026-09-21 — Doc maintenance delegated to Claude.** Prose upkeep isn't the learning target; stale docs are worse than none.
+- **2026-09-26 — Mechanical test changes opened to Claude, on explicit request only.** Table-driven conversions and testable examples for code she already wrote. The learning is in deciding what to assert, not in typing out the table. The limits keep it mechanical: `_test.go` only, never the Spec, no added or dropped cases, suite green before and after. Any gap Claude spots gets named, and she writes the fix. Each use gets noted here so the record of what she wrote stays accurate. Public note is in `docs/self-study.md`. Same day, a working checklist was added to the skill, because a test refactor has no test of its own. It only runs on green. She defines the table's shape or the example's usage. Subtest names must match one-to-one. One case is broken on purpose to prove the table still asserts. Each change lands as its own `refactor:` commit.
+- **2026-09-26 — Config: defaults < `.env` < env vars, and the file is optional.** 12-factor factor III: the environment is authoritative, and a missing `.env` is a warning, not a fatal, because the container never has one (verified by the acceptance suite). The defaults setup function was made non-injectable after an injected test double hid a bug where production defaults went to viper's global instance, so every env var was silently ignored. Tests now exercise the real defaults. Lesson worth keeping: an injectable seam can let a test replace the code it was meant to check.

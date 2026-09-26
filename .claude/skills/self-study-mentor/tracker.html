@@ -461,8 +461,8 @@
         <dd class="mono">abreuer-M2-add-query</dd>
       </div>
       <div class="stat">
-        <dt>Last verified green</dt>
-        <dd class="mono">2026-09-21</dd>
+        <dt>Last verified</dt>
+        <dd class="mono">2026-09-26 &middot; lint: 8 doc comments</dd>
       </div>
     </dl>
   </header>
@@ -541,7 +541,7 @@
         </li>
         <li>
           <span class="idx">02</span>
-          <span class="what">Seam refactor, TODO cleanup, config
+          <span class="what">Seam refactor, TODO cleanup &middot; config landed
             <span class="why">One adapter carrying both operations; narrow interfaces at each handler. Domain owns the store, transport stops threading it through.</span>
           </span>
         </li>
@@ -745,7 +745,7 @@
         <ul>
           <li><strong>Course 1 before M3.</strong> SQS and at-least-once delivery are course 2's lab.</li>
           <li><strong>Benchmark before optimizing.</strong> &ldquo;I know it'll allocate&rdquo; is not a measurement.</li>
-          <li><strong>Config decision before M2 exits.</strong> It lands in the query PR, or it moves out explicitly.</li>
+          <li><strong><s>Config decision before M2 exits.</s></strong> Met 2026-09-26: port config landed, env &gt; <code>.env</code> &gt; defaults.</li>
         </ul>
       </div>
 
@@ -754,6 +754,7 @@
         <ul>
           <li><strong>Spec matches error prose, not class.</strong> Rewording a sentinel breaks the container suite. Fix is driver-carried classification.</li>
           <li><strong>Device IDs only checked for emptiness.</strong> No format, length, or charset rules.</li>
+          <li><strong><code>GIN_MODE</code> not in config.</strong> Still a bare Dockerfile <code>ENV</code>; fold in with the next setting.</li>
           <li><strong>Complexity linting off.</strong> Everything measures &le;6, so no threshold could fire. Set it from measurement once the ring lands.</li>
         </ul>
       </div>
@@ -762,7 +763,7 @@
   </section>
 
   <footer>
-    <span>Updated 2026-09-21</span>
+    <span>Updated 2026-09-26</span>
     <span>Source of truth: <code>progress-log.md</code></span>
     <span>Claude maintains both</span>
   </footer>

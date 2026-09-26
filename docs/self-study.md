@@ -11,7 +11,9 @@ This self-study is driven by a skill I created with Claude (Opus 5) and can be f
 
 Claude and I both came up with the curriculum, and Claude helps me learn new concepts as I work through it. The agent is instructed to not write the code for me to maximize knowledge gain, but can help me do menial tasks such as update progress logs, stale documentation, etc.
 
-So, the repo is a bit of a mix of AI-generated code and my own hand-written code (i.e. Claude handled docs, tooling and CI upkeep, and I wrote the internal code, the spec and the tests).
+It can also make mechanical test changes when I specifically ask for them, like converting tests I already wrote into table-driven tests, or adding [testable examples](https://go.dev/blog/examples) for code I already wrote. The rule is that it only reshapes: it can't add or drop test cases, loosen assertions, or touch production code or the spec while it's in there. If it spots a missing case, it tells me and I write it. The thinking behind a test is deciding what to assert, not typing out the table.
+
+So, the repo is a bit of a mix of AI-generated code and my own hand-written code (i.e. Claude handled docs, tooling and CI upkeep, plus the occasional mechanical test change I asked for, and I wrote the internal code, the spec and all the test cases).
 
 It's worth noting that, in a production project, I would encourage more code generation (especially when using a good model like Opus). However, since I wanted to *truly understand* what I was doing so I could replicate it later manually or via prompts, I opted for Claude to not write it all for me.
 
