@@ -1,4 +1,4 @@
-// Package shared contains shared utilities and helpers for the telemetry service, including test utilities.
+// Package shared contains shared utilities and helpers for the telemetry service, like test and string utils.
 package shared
 
 import (

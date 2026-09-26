@@ -23,21 +23,21 @@ func TestAppConfigValidate(testCtx *testing.T) {
 		},
 		{
 			Name:          "invalid config: system port",
-			InputCfg:      config.AppConfig{Port: 1023},
+			InputCfg:      config.AppConfig{Port: config.MinPortSystemThreshold - 1},
 			ExpectedError: config.EnvPort,
 		},
 		{
 			Name:     "valid config: just outside system port",
-			InputCfg: config.AppConfig{Port: 1024},
+			InputCfg: config.AppConfig{Port: config.MinPortSystemThreshold},
 		},
 		{
 			Name:          "invalid config: outside max",
-			InputCfg:      config.AppConfig{Port: 65546},
+			InputCfg:      config.AppConfig{Port: config.MaxPortThreshold + 1},
 			ExpectedError: config.EnvPort, // Error should have the env var name in it
 		},
 		{
-			Name:     "valid config: just outside system port",
-			InputCfg: config.AppConfig{Port: 65535},
+			Name:     "valid config: just outside valid port",
+			InputCfg: config.AppConfig{Port: config.MaxPortThreshold},
 		},
 	}
 

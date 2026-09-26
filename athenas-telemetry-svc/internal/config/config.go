@@ -1,3 +1,4 @@
+// Package config holds the logic for deserializing env vars + config files into an AppConfig struct
 package config
 
 import (
@@ -10,24 +11,33 @@ import (
 
 // ================================================================================================
 
-// FIXME: Add docstrings
-
 const (
+	// DefaultConfigPath is used if not overridden in config.InitEnv, which is a dotenv file in
+	// the root directory
 	DefaultConfigPath = ".env"
+
+	// DefaultConfigType is the viper config type that's used if not overridden in config.InitEnv,
+	// which is a dotenv file
 	DefaultConfigType = "env"
 )
 
 // ------------------------------------------------------------------------------------------------
 
-type InitEnvOptFn func(*initEnvOptions)
+// OptionFn is the helper func for modifying the Options input struct
+type OptionFn func(*Options)
 
-type initEnvOptions struct {
+// Options defines the args that can be passed into InitEnv that can be modified by OptionFn
+type Options struct {
 	ViperIns      *viper.Viper
 	AppConfigPath string
 	AppConfigType string
 }
 
-func (rOpts *initEnvOptions) Validate() error {
+// Options.Validate ensures that the input values are correct.
+//
+// Although we set defaults for optional params, we still validate everything since they
+// could be overridden with input OptionFns
+func (rOpts *Options) Validate() error {
 	if rOpts.ViperIns == nil {
 		return errors.New("viper instance is required")
 	}
@@ -41,20 +51,23 @@ func (rOpts *initEnvOptions) Validate() error {
 	return nil
 }
 
-func WithViperIns(viperIns *viper.Viper) InitEnvOptFn {
-	return func(opts *initEnvOptions) {
+// WithViperIns overrides the given viperIns from the defaults in InitEnv
+func WithViperIns(viperIns *viper.Viper) OptionFn {
+	return func(opts *Options) {
 		opts.ViperIns = viperIns
 	}
 }
 
-func WithAppConfigPath(cfgPath string) InitEnvOptFn {
-	return func(opts *initEnvOptions) {
+// WithAppConfigPath overrides the given cfgPath from the defaults in InitEnv
+func WithAppConfigPath(cfgPath string) OptionFn {
+	return func(opts *Options) {
 		opts.AppConfigPath = cfgPath
 	}
 }
 
-func WithAppConfigType(cfgType string) InitEnvOptFn {
-	return func(opts *initEnvOptions) {
+// WithAppConfigType overrides the given cfgType from the defaults in InitEnv
+func WithAppConfigType(cfgType string) OptionFn {
+	return func(opts *Options) {
 		opts.AppConfigType = cfgType
 	}
 }
@@ -62,8 +75,10 @@ func WithAppConfigType(cfgType string) InitEnvOptFn {
 // ------------------------------------------------------------------------------------------------
 
 // InitEnv loads environment variables and dotenv files into a struct using viper.
-func InitEnv(inOptFns ...InitEnvOptFn) (*AppConfig, error) {
-	opts := &initEnvOptions{
+//
+// It accepts a slice of OptionFn funcs that can be used to override the default values.
+func InitEnv(inOptFns ...OptionFn) (*AppConfig, error) {
+	opts := &Options{
 		ViperIns:      viper.New(),
 		AppConfigPath: DefaultConfigPath,
 		AppConfigType: DefaultConfigType,
