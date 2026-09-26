@@ -9,8 +9,6 @@ import (
 
 // ================================================================================================
 
-// FIXME: Add docstrings
-
 const (
 	// EnvPort is the name of the viper config / env var value for PORT
 	EnvPort = "PORT"

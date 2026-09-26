@@ -12,14 +12,17 @@ import (
 
 // ================================================================================================
 
-// FIXME: Add docstrings
-
+// writeTempDotEnv creates a dotenv file with the given contents and puts it in a temp directory
+// that is cleaned up when all tests / subtests for testCtx are complete, and returns the path
+// of the created file.
 func writeTempDotEnv(testCtx *testing.T, contents string) string {
 	testCtx.Helper()
 
 	dir := testCtx.TempDir()
 	configPath := filepath.Join(dir, ".env")
 
+	// write the file using the typical permissions of dotenv files, which is only the owner of the
+	// file can read and write it
 	err := os.WriteFile(configPath, []byte(contents), 0600)
 	require.NoError(testCtx, err)
 
@@ -28,6 +31,12 @@ func writeTempDotEnv(testCtx *testing.T, contents string) string {
 
 // ------------------------------------------------------------------------------------------------
 
+// TestConfigInit uses a mixture of setting env vars and creating temporary .env files to verify
+// that parsing config values for our service works as expected.
+//
+// Most notably, we must verify the precedence of config parsing such that:
+//
+//	env vars > .env files > default values
 func TestConfigInit(testCtx *testing.T) {
 	testCases := []struct {
 		Name           string

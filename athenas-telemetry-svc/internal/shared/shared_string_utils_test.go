@@ -9,6 +9,8 @@ import (
 
 // ================================================================================================
 
+// TestFormatString is a simple table-driven test for verifying that shared.FormatString works
+// as expected.
 func TestFormatString(testCtx *testing.T) {
 	testCases := []struct {
 		Name           string
@@ -113,6 +115,8 @@ func TestFormatString(testCtx *testing.T) {
 
 // ------------------------------------------------------------------------------------------------
 
+// TestStringOrEmpty is a super simple table-driven test for shared.StringOrEmpty, mostly because
+// it doesn't do much and also because we're not expecting very complicated usages in our service
 func TestStringOrEmpty(testCtx *testing.T) {
 	testCases := []struct {
 		Name           string

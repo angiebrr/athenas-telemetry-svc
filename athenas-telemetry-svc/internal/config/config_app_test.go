@@ -9,8 +9,8 @@ import (
 
 // ================================================================================================
 
-// FIXME: Add docstrings
-
+// TestAppConfigValidate verifies that the validation helper for AppConfig accepts and rejects
+// values as expected
 func TestAppConfigValidate(testCtx *testing.T) {
 	testCases := []struct {
 		Name          string
