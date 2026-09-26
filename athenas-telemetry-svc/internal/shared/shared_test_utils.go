@@ -35,7 +35,7 @@ func ValidTelemetry() models.Telemetry {
 //
 // See ValidTelemetry for details on how each telemetry object is generated.
 func ValidTelemetryN(n int) []models.Telemetry {
-	telemetryList := make([]models.Telemetry, n)
+	telemetryList := []models.Telemetry{}
 	for range n {
 		telemetryList = append(telemetryList, ValidTelemetry())
 	}
