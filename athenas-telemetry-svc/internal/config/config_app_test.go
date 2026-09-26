@@ -12,32 +12,38 @@ import (
 // TestAppConfigValidate verifies that the validation helper for AppConfig accepts and rejects
 // values as expected
 func TestAppConfigValidate(testCtx *testing.T) {
+	validCfg := config.DefaultAppConfig()
 	testCases := []struct {
 		Name          string
 		InputCfg      config.AppConfig
 		ExpectedError string
 	}{
 		{
-			Name:     "valid config: typical port",
-			InputCfg: config.AppConfig{Port: 8080},
+			Name:     "valid config",
+			InputCfg: validCfg,
 		},
 		{
-			Name:          "invalid config: system port",
-			InputCfg:      config.AppConfig{Port: config.MinPortSystemThreshold - 1},
+			Name:          "invalid config: under min port",
+			InputCfg:      configWithPort(validCfg, config.MinPortSystemThreshold-1),
 			ExpectedError: config.EnvPort,
 		},
 		{
-			Name:     "valid config: just outside system port",
-			InputCfg: config.AppConfig{Port: config.MinPortSystemThreshold},
+			Name:     "valid config: at min port",
+			InputCfg: configWithPort(validCfg, config.MinPortSystemThreshold),
 		},
 		{
-			Name:          "invalid config: outside max",
-			InputCfg:      config.AppConfig{Port: config.MaxPortThreshold + 1},
-			ExpectedError: config.EnvPort, // Error should have the env var name in it
+			Name:          "invalid config: above max port",
+			InputCfg:      configWithPort(validCfg, config.MaxPortThreshold+1),
+			ExpectedError: config.EnvPort,
 		},
 		{
-			Name:     "valid config: just outside valid port",
-			InputCfg: config.AppConfig{Port: config.MaxPortThreshold},
+			Name:     "valid config: at max port",
+			InputCfg: configWithPort(validCfg, config.MaxPortThreshold),
+		},
+		{
+			Name:          "invalid config: bad environment",
+			InputCfg:      configWithEnv(validCfg, "venus"),
+			ExpectedError: config.EnvEnv,
 		},
 	}
 

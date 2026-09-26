@@ -38,6 +38,7 @@ func writeTempDotEnv(testCtx *testing.T, contents string) string {
 //
 //	env vars > .env files > default values
 func TestConfigInit(testCtx *testing.T) {
+	validCfg := config.DefaultAppConfig()
 	testCases := []struct {
 		Name           string
 		DotEnvContents string
@@ -47,19 +48,19 @@ func TestConfigInit(testCtx *testing.T) {
 	}{
 		{
 			Name:        "no .env and no env vars, defaults used",
-			ExpectedCfg: config.AppConfig{Port: config.DefaultPort},
+			ExpectedCfg: validCfg,
 		},
 		{
 			Name:           "only .env sets PORT",
 			DotEnvContents: "PORT=9090",
-			ExpectedCfg:    config.AppConfig{Port: 9090},
+			ExpectedCfg:    configWithPort(validCfg, 9090),
 		},
 		{
 			Name: "only env var sets PORT",
 			EnvVars: map[string]string{
 				config.EnvPort: "7070",
 			},
-			ExpectedCfg: config.AppConfig{Port: 7070},
+			ExpectedCfg: configWithPort(validCfg, 7070),
 		},
 		{
 			Name:           "env var takes precedence over .env",
@@ -67,7 +68,7 @@ func TestConfigInit(testCtx *testing.T) {
 			EnvVars: map[string]string{
 				config.EnvPort: "7070",
 			},
-			ExpectedCfg: config.AppConfig{Port: 7070},
+			ExpectedCfg: configWithPort(validCfg, 7070),
 		},
 		{
 			Name: "env vars sets invalid port",
