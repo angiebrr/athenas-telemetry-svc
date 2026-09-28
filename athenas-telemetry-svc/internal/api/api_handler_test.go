@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -46,14 +45,12 @@ func validTelemetry() models.Telemetry {
 // subtest. Once it owns a dispatch ring each case needs its own, so they can't leak state into
 // each other.
 func newTestServer(testCtx testing.TB) *api.Server {
-	// quiet gin debug logs during testing
-	gin.SetMode(gin.TestMode)
-
 	// use in-memory data store for the handler tests
 	dataStore := data.NewInMemoryStore()
 	telemetrySvc := telemetry.NewService(dataStore)
 
-	server := api.NewServer(telemetrySvc, gin.TestMode)
+	server, err := api.NewServer(telemetrySvc, api.WithServerMode(api.TestMode))
+	require.NoError(testCtx, err)
 	require.NotNil(testCtx, server, "server should not be nil")
 
 	return server

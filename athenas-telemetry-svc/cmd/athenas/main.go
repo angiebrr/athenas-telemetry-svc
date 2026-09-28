@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/angiebrr/athenas-telemetry-svc/internal/api"
 	"github.com/angiebrr/athenas-telemetry-svc/internal/config"
 	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
@@ -27,14 +25,17 @@ func main() {
 	dataStore := data.NewInMemoryStore()
 	telemetrySvc := telemetry.NewService(dataStore)
 
-	// Set gin release mode based on environment
-	ginMode := gin.DebugMode
+	// Set the server mode based on environment
+	mode := api.DebugMode
 	if cfg.Env == config.EnvProd {
-		ginMode = gin.ReleaseMode
+		mode = api.ReleaseMode
 	}
 
 	// Set up the HTTP server that serves the telemetry from the backend service
-	server := api.NewServer(telemetrySvc, ginMode)
+	server, err := api.NewServer(telemetrySvc, api.WithServerMode(mode))
+	if err != nil {
+		log.Fatalf("failed to create server: %v", err)
+	}
 
 	fmt.Println("Telemetry service is running...")
 	err = server.Run(fmt.Sprintf(":%d", cfg.Port))
