@@ -137,16 +137,22 @@ func StorerContract(testCtx *testing.T, store data.Storer) {
 		require.Len(subTestCtx, results, 3, "device should have 3 pieces of telemetry")
 
 		// Mutate the local results array
-		results[0].DeviceID = "MUTATED"
+		firstResult := &results[0]
+		firstResult.DeviceID = "MUTATED"
+		require.GreaterOrEqual(subTestCtx, len(firstResult.Metrics), 1,
+			"first result for device should have at least 1 metric")
+		firstResult.Metrics[0].Name = "MUTATED"
 
 		// Get the results again, and verify none of the data points have a mutated deviced ID
+		// or metric name
 		results, err = store.GetByDeviceID(sampleData1.DeviceID)
 		require.NoError(subTestCtx, err)
 		require.Len(subTestCtx, results, 3, "device should have 3 pieces of telemetry")
 		for _, currData := range results {
-			got := currData.DeviceID
-			want := sampleData1.DeviceID
-			assert.Equal(subTestCtx, want, got)
+			assert.NotEqual(subTestCtx, "MUTATED", currData.DeviceID)
+			for _, metric := range currData.Metrics {
+				assert.NotEqual(subTestCtx, "MUTATED", metric.Name)
+			}
 		}
 	})
 }
