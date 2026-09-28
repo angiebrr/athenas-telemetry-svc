@@ -12,7 +12,7 @@ import (
 
 // ================================================================================================
 
-// ServerMode is used to control logging verbosity, error stack trace depth, and performance tuning.
+// ServerMode is used to control logging verbosity.
 //
 // We have our own enum here so callers outside of "api" don't need to know about gin / keep deps
 // from leaking, and it also allows us to have stronger typing (since gin's modes are just strings)
@@ -23,7 +23,7 @@ const (
 	TestMode ServerMode = gin.TestMode
 	// DebugMode is the default mode and shows verbose debug logging + full stack traces
 	DebugMode ServerMode = gin.DebugMode
-	// ReleaseMode hides startup + debug logs and optimizes for speed and security
+	// ReleaseMode hides startup + debug logs
 	ReleaseMode ServerMode = gin.ReleaseMode
 )
 
@@ -62,6 +62,8 @@ func (rOpts *Options) Validate() error {
 
 // WithServerMode sets the mode for the server, which mostly just dictates what kinds of logs are
 // output from the underlying gin engine.
+//
+// Note that updating this will update this globally for gin.
 func WithServerMode(mode ServerMode) OptionFn {
 	return func(opts *Options) {
 		opts.Mode = mode
@@ -93,6 +95,7 @@ func NewServer(telemetrySvc *telemetry.Service, inOptFns ...OptionFn) (*Server, 
 	}
 
 	// set the gin engine mode, which has to be done before creating an engine
+	// (this is global)
 	gin.SetMode(string(opts.Mode))
 
 	// create the gin engine and set up handlers the engine will use for the server
