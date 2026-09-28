@@ -64,7 +64,7 @@ There is **no `go.work`** despite the project notes describing "Go workspaces" �
 This is the structural heart of the repo and spans three files across both modules:
 
 1. **`athenas-telemetry-svc/specifications/telemetry_spec.go`** — the Spec ("the Rules"). Declares the `TelemetryIngester` and `TelemetryQuerier` interfaces and `TelemetrySpec(t, ingester, querier)`, a table of behavioral cases written against those interfaces only. It lives in the service module and is deliberately **exported, not `internal/`**, so the acceptance module can import it.
-2. **`athenas-acceptance-tests/internal/drivers/httpserver/httpserver_driver.go`** — a Driver ("the Plumbing"). Implements `TelemetryIngester` by making real HTTP calls, translating a non-`202` response into an `IngestError`.
+2. **`athenas-acceptance-tests/internal/drivers/httpserver/httpserver_driver.go`** — a Driver ("the Plumbing"). Implements `TelemetryIngester` and `TelemetryQuerier` by making real HTTP calls, translating a non-success response (anything but `202` on POST, `200` on GET) into a `TelemetryError`, or into the raw body when it is not JSON.
 3. **`athenas-acceptance-tests/tests/httpserver/athenas_server_test.go`** — wires a containerized server to the Driver and runs the Spec against it.
 
 The payoff: one Spec, many Drivers. Future milestones add drivers (SQS, multi-pod) that satisfy the same interface, and in-process adapters can run the same Spec as fast unit tests. **New behavior goes into the Spec (red) before any `internal/` code changes.**
@@ -77,7 +77,7 @@ The payoff: one Spec, many Drivers. Future milestones add drivers (SQS, multi-po
 
 ### Service internals
 
-`cmd/athenas/main.go` loads an `AppConfig` (`PORT`, `APP_ENV` ∈ `dev`/`prod`) via `config.InitEnv()`, builds a `data.Storer`, maps `APP_ENV` to a gin mode (`prod` → release, else debug), and passes both to `api.NewServer()` (a `gin.Engine` wrapper). The environment-to-mode translation lives in `main`, the composition root, so `internal/api` never learns environment names. The image sets `APP_ENV=prod`, so the acceptance suite runs the release configuration. The variable is prefixed because POSIX `sh` reserves `ENV`. `api.InitHandlers` registers two routes:
+`cmd/athenas/main.go` loads an `AppConfig` (`PORT`, `APP_ENV` ∈ `dev`/`prod`) via `config.InitEnv()`, builds a `data.Storer`, maps `APP_ENV` to an `api.ServerMode` (`prod` → `ReleaseMode`, else `DebugMode`), and passes both to `api.NewServer(svc, api.WithServerMode(mode))` (a `gin.Engine` wrapper; functional options, validated, returns an error). The environment-to-mode translation lives in `main`, the composition root, so `internal/api` never learns environment names; `ServerMode` wraps gin's mode strings so `main` never imports gin. `NewServer` still calls `gin.SetMode`, which is **process-global** — gin has no per-engine mode, and it only gates gin's own debug output (route listing, warnings, recovery detail), not middleware or performance. The image sets `APP_ENV=prod`, so the acceptance suite runs the release configuration. The variable is prefixed because POSIX `sh` reserves `ENV`. `api.InitHandlers` registers two routes:
 
 | Route | Handler | Success |
 |---|---|---|
@@ -88,7 +88,7 @@ Three layers, dependencies flowing inward:
 
 - **`internal/api`** — transport only. Binds/serializes, and translates domain errors to status codes: `telemetry.ValidateTelemetryError` → `400`, `data.NotFoundError` → `404`, anything else → `500` with the internal text scrubbed and the real error sent to `slog`.
 - **`internal/telemetry`** — the domain rules. `Ingest` (→ `Validate` → store) and `Query` (device-ID check → store). Validation is deliberately **not** on `models.Telemetry` — `models` is exported, so a driver could otherwise call `Validate` client-side and pass the Spec without the server doing anything.
-- **`internal/data`** — the storage port (`data.Storer`) plus `InMemoryDataStore`, a mutex-guarded `map[string][]models.Telemetry`. `GetByDeviceID` returns a **deep** copy (the outer slice *and* each record's `Metrics`), because a shallow `slices.Clone` still leaks the metrics backing array to callers. `data_contract_test.go` holds `DataStoreContract`, run against the port by `data_in_memory_test.go`, so M4's Postgres store can be checked against the same suite.
+- **`internal/data`** — the storage port (`data.Storer`) plus `InMemoryStore`, a mutex-guarded `map[string][]models.Telemetry`. `GetByDeviceID` returns a **deep** copy (the outer slice *and* each record's `Metrics`), because a shallow `slices.Clone` still leaks the metrics backing array to callers. `data_contract_test.go` holds `StorerContract`, run against the port by `data_in_memory_test.go`, so M4's Postgres store can be checked against the same suite.
 
 `GET /v1/telemetry/` (empty device ID) is **not routable** — gin's radix tree won't bind `:device_id` to an empty segment, and there's no GET handler at `/v1/telemetry` to redirect to, so it 404s. Empty-device-ID validation is therefore a `telemetry.Query` unit test, not a Spec case: the HTTP driver structurally cannot express that request.
 
@@ -96,20 +96,20 @@ Three layers, dependencies flowing inward:
 
 Two kinds of artifact, and conflating them is the usual source of confusion:
 
-- **Shared test bodies** — parameterized suites that take a subject and assert against it. They are not tests; `go test` never runs them directly. `specifications.TelemetrySpec(t, ingester, querier)` is a contract on the **driving port** (what a caller gets from the service). `DataStoreContract(t, store)` is a contract on a **driven port** (what any storage adapter must deliver).
+- **Shared test bodies** — parameterized suites that take a subject and assert against it. They are not tests; `go test` never runs them directly. `specifications.TelemetrySpec(t, ingester, querier)` is a contract on the **driving port** (what a caller gets from the service). `StorerContract(t, store)` is a contract on a **driven port** (what any storage adapter must deliver).
 - **Test entry points** — `TestXxx(t)` functions that bind a concrete subject and invoke a body. The entry point, not the body, determines the level.
 
 | Entry point | Binds | Level |
 |---|---|---|
 | `TestAthenasTelemetryServer` | HTTP driver → container | acceptance / end-to-end |
-| `TestTelemetryActions` | in-process adapters → domain | subcutaneous (full behavior, below transport) |
+| `TestTelemetryService` | `telemetry.Service` → domain | subcutaneous (full behavior, below transport) |
 | `TestHandleIngestTelemetry` / `TestHandleQueryTelemetry` | gin engine via `httptest` | driving-adapter test |
-| `TestInMemoryDataStore` | in-memory store → `DataStoreContract` | driven-adapter conformance |
+| `TestInMemoryStore` | in-memory store → `StorerContract` | driven-adapter conformance |
 | `TestQueryDeviceIDs`, `telemetry_validate_test.go` | domain functions | table-driven unit |
 
 `TelemetrySpec` currently runs at **two** levels — domain and container. `api_handler_test.go` used to run it too but now has hand-written transport cases instead, which is a reasonable split (the spec describes behavior; the handler tests describe status-code translation) but means transport is no longer spec-covered.
 
-**There are no test doubles anywhere in the repo.** `newTestServer` wires the real `InMemoryDataStore`, so every test is *sociable* in Fowler's sense. When a Postgres store lands at M4, the in-memory one becomes a genuine **fake** for the tests above it. `httpserver.Driver` **deliberately hardcodes** `/v1/telemetry` rather than importing `api.TelemetryPath` — it is a black-box client, and sharing the constant would let a route rename ship green.
+**There are no test doubles anywhere in the repo.** `newTestServer` wires the real `InMemoryStore`, so every test is *sociable* in Fowler's sense. When a Postgres store lands at M4, the in-memory one becomes a genuine **fake** for the tests above it. `httpserver.Driver` **deliberately hardcodes** `/v1/telemetry` rather than importing `api.TelemetryPath` — it is a black-box client, and sharing the constant would let a route rename ship green.
 
 ## Known Debt (deliberate, tracked in TODOs)
 
