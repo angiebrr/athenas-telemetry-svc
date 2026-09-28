@@ -28,9 +28,9 @@ type OptionFn func(*Options)
 
 // Options defines the args that can be passed into InitEnv that can be modified by OptionFn
 type Options struct {
-	ViperIns      *viper.Viper
-	AppConfigPath string
-	AppConfigType string
+	ViperIns      *viper.Viper // The viper instance used for processing config + env vars
+	AppConfigPath string       // The config path to pass into viper
+	AppConfigType string       // The type of config to pass into viper
 }
 
 // Options.Validate ensures that the input values are correct.
@@ -51,21 +51,28 @@ func (rOpts *Options) Validate() error {
 	return nil
 }
 
-// WithViperIns overrides the given viperIns from the defaults in InitEnv
+// WithViperIns sets the viper instance when processing the app's config + env vars.
+// By default, a viper instance is created for you.
 func WithViperIns(viperIns *viper.Viper) OptionFn {
 	return func(opts *Options) {
 		opts.ViperIns = viperIns
 	}
 }
 
-// WithAppConfigPath overrides the given cfgPath from the defaults in InitEnv
+// WithAppConfigPath sets the config path that is passed to viper to tell it where the config file
+// should live.
+//
+// See DefaultConfigPath for what the default value is used if this is not called.
 func WithAppConfigPath(cfgPath string) OptionFn {
 	return func(opts *Options) {
 		opts.AppConfigPath = cfgPath
 	}
 }
 
-// WithAppConfigType overrides the given cfgType from the defaults in InitEnv
+// WithAppConfigType sets the type of config that is passed to viper to tell it what type of config
+// file should be expected.
+//
+// See DefaultConfigType for what the default value is used if this is not called.
 func WithAppConfigType(cfgType string) OptionFn {
 	return func(opts *Options) {
 		opts.AppConfigType = cfgType
