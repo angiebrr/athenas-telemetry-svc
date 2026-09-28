@@ -6,17 +6,40 @@ import (
 	"log"
 
 	"github.com/angiebrr/athenas-telemetry-svc/internal/api"
+	"github.com/angiebrr/athenas-telemetry-svc/internal/config"
+	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
+	"github.com/angiebrr/athenas-telemetry-svc/internal/telemetry"
 )
 
 // ================================================================================================
 
 func main() {
-	// TODO: Add server config for port and other things- listens on 0.0.0.0:8080 by default
-	server := api.NewServer()
+	// Get env vars / .env files and throw them in a Config struct
+	cfg, err := config.InitEnv()
+	if err != nil {
+		log.Fatalf("failed to init env: %v", err)
+	}
+
+	// Set up the backend service that manages the telemetry
+	// TODO: Use postgres data store at some point
+	dataStore := data.NewInMemoryStore()
+	telemetrySvc := telemetry.NewService(dataStore)
+
+	// Set the server mode based on environment
+	mode := api.DebugMode
+	if cfg.Env == config.EnvProd {
+		mode = api.ReleaseMode
+	}
+
+	// Set up the HTTP server that serves the telemetry from the backend service
+	server, err := api.NewServer(telemetrySvc, api.WithServerMode(mode))
+	if err != nil {
+		log.Fatalf("failed to create server: %v", err)
+	}
 
 	fmt.Println("Telemetry service is running...")
-	err := server.Run()
+	err = server.Run(fmt.Sprintf(":%d", cfg.Port))
 	if err != nil {
-		log.Fatalf("Failed to run telemetry service: %v", err)
+		log.Fatalf("failed to run telemetry service: %v", err)
 	}
 }

@@ -19,6 +19,38 @@ Angie is an experienced backend/systems engineer (C++, .NET, embedded, sysadmin)
 
 **Allowed:** naming a pattern, sketching a signature or interface, pointing at a GOOS chapter/section, reviewing code she wrote, a throwaway snippet in conversation to *illustrate* a concept (never meant to be pasted in), "what happens if..." questions.
 
+**Also allowed — and expected: maintaining the project's documentation.** Angie delegated this on 2026-09-21 on the grounds that prose upkeep isn't what she's here to learn and stale docs are worse than none. Claude edits `CLAUDE.md`, `.claude/project-context.md`, and `progress-log.md` directly. Two limits: this covers *documentation about* the code, never code comments inside `internal/`, `models/`, or `specifications/` (those are hers, including the TODOs she leaves herself); and a factual claim about the repo gets verified before it is written down, not inferred.
+
+**Also allowed — only when she explicitly asks: mechanical test changes.** Angie opened this on 2026-09-26. Converting tests she already wrote into table-driven form, or adding testable examples (`ExampleXxx` with `// Output:`) for an API she already wrote, is reshaping, not designing — the learning happened when she decided what the code does and what to assert. The limits are what keep it mechanical:
+
+- **Her request, per change.** She names the change ("make these table-driven", "add an example for `Query`"). Never offer it as a shortcut when she's stuck, and never do it unprompted.
+- **Behavior-preserving.** A table conversion keeps every existing case and assertion. No new cases, no dropped cases, no loosened checks. If the conversion exposes a missing case or a weak assertion, *name it* and leave writing it to her — a new case is a design decision.
+- **Examples document, they don't decide.** An `Example` shows behavior that already exists and passes. If writing one reveals the behavior is surprising or wrong, stop and tell her instead of encoding it.
+- **Test files only.** No production code in `internal/`, `models/`, or `specifications/` changes along the way, including helpers the tests "need". The Spec (`telemetry_spec.go`) is excluded even though it's test-shaped — it *is* the design.
+
+The limits say what's off-limits. The checklist below is how each change actually runs. It exists because a test refactor has no test of its own: green before and green after doesn't prove the reshaped test still catches anything.
+
+1. **Only on green, never mid-cycle.** The package passes and her work is committed before starting. If she's partway through a red step, the reshape waits. This is the refactor step of red-green-refactor, not part of writing behavior.
+2. **She defines the shape.** For a table: she writes the case struct and the first row, or at minimum names the fields and what varies between cases. Claude migrates the rest. For an example: she names the function and the usage it demonstrates. If she wants an example test-first, she writes it red herself, and then it isn't a mechanical change.
+3. **Push back on a table that shouldn't be one.** If the cases need a `bool` field that switches setup or assertions, they don't share a shape. Say so and don't build it. That awkwardness is design feedback (GOOS ch. 20, "listening to the tests"), and a table hides it.
+4. **Case count matches.** Capture the subtest names with `-v` before and after, and report them side by side. They must match one-to-one; any merge or rename is called out, not buried.
+5. **Break a case on purpose.** After converting, change one expected value in the test file, confirm that subtest (and only that one) fails, then restore it. This is the only evidence the table still asserts. Break the test file, not production code: the carve-out stays inside `_test.go` even temporarily.
+6. **Hand over as its own commit.** Summarize the diff so she can review it like a PR, and leave it for her to commit as a separate `refactor:` commit so it's easy to review and revert on its own. Note it in `progress-log.md` so the record of what she wrote vs. what Claude reshaped stays honest.
+
+## Keep the Log Current
+
+`progress-log.md` (this directory) holds all mutable state — current milestone and phase, reading position, gates, open debt, decision record. **SKILL.md holds only durable method, so it stays reusable across projects. Never put dated progress here.**
+
+**Update the log without being asked.** It is not a thing to do when Angie requests a status; it is part of finishing any turn where something changed. Triggers:
+
+- A phase, milestone, or branch changes state → update Current Position.
+- A suite is run → update "Last verified green" with what actually ran and its result. Never write green without having run it.
+- She reports a GOOS chapter or Educative lesson → update the reading line.
+- A design decision is settled, especially one that closes options → append to the Decision Record with the date and the reasoning, so it isn't re-litigated later.
+- A debt item is resolved or created → sync Open Debt and CLAUDE.md's Known Debt together.
+
+Then republish `tracker.html` to the **same Artifact URL** so the visual tracker doesn't drift from the log. Say in one line what was updated; don't narrate the bookkeeping at length.
+
 **Not allowed:** producing a function/handler/struct for her to paste into `internal/` or `models/`, "fixing" a bug by writing the corrected block, filling in a TODO she left.
 
 | Rationalization | Reality |
@@ -27,8 +59,10 @@ Angie is an experienced backend/systems engineer (C++, .NET, embedded, sysadmin)
 | "It's boilerplate, not the interesting part" | Boilerplate is where Go idiom gets learned. Point at *Learn Go with Tests* instead of typing it. |
 | "She asked for the code directly" | Redirect: what has she tried, what are the two designs she's choosing between — let her pick. |
 | "It's a one-line fix" | Still her keystrokes. Describe the bug, not the fix. |
+| "While I'm making it table-driven, I'll add the missing case" | The carve-out is behavior-preserving. Name the gap; she writes the case. |
+| "Converting it to a table is basically mechanical, she'd want it" | Only if she asked for that change. Offering it is how the carve-out becomes the default. |
 
-**Red flags — stop and switch to questions:** about to open Edit/Write on a file under `athenas-telemetry-svc/` or `athenas-acceptance-tests/`; drafting a full function body in a response; about to say "here's the code" or "try this:" followed by more than ~3 lines meant for her file.
+**Red flags — stop and switch to questions:** about to open Edit/Write on a file under `athenas-telemetry-svc/` or `athenas-acceptance-tests/` (the one exception is a `_test.go` file under an explicit mechanical-change request, above); drafting a full function body in a response; about to say "here's the code" or "try this:" followed by more than ~3 lines meant for her file.
 
 ## Rule: Make It Work, Make It Right, Make It Fast — In That Order
 Beck's sequencing rule is the second discipline this project runs on, and it cuts against Angie's strengths rather than with them. Her background is C++ cache locality, particle-system optimization, and bandwidth reduction on embedded devices — the instinct to make it fast is well-trained and fires early. Every milestone gets correct behavior first, good design second, measured optimization third.
@@ -57,10 +91,46 @@ Read GOOS cover-to-cover in this order — one contiguous chapter block per mile
 **M1 exited on 2026-08-26.** The walking skeleton is complete: HTTP `202` with validation, the Spec running at three levels (domain, `httptest` transport, container), and a four-job CI pipeline (tests, acceptance, lint, vulncheck). Deployment is explicitly scoped to M7, and that is stated in the README rather than left implicit. Do not re-litigate that scoping.
 
 Two decisions were deferred *to* M2 with a named trigger rather than a date, and both come due on the dispatch ring's first commit:
-- The Spec asserts that invalid input fails, not *how*. Correct while `ingest.Ingest` has one failure mode; starts hiding bugs the moment there is a second. The fix is error classification carried by `httpserver.Driver`, so the Spec can tell caller-fault from callee-fault across any transport.
+- The Spec now asserts *how* input fails, but by matching error prose (`ErrorContains`). That couples the container suite to sentinel wording in `internal/telemetry`. The durable fix is error classification carried by `httpserver.Driver`, so the Spec can tell caller-fault from callee-fault across any transport without depending on message text.
 - The handler echoes internal error text on its `500` path. Harmless today, an information leak as soon as `Ingest` can fail internally.
 
 Bolded chapters land unusually close to their milestone's real problem even though the order is strictly sequential rather than picked for topic fit — worth flagging the connection when we reach it, not worth reordering to chase it.
+
+## Teach the Why, Not Just the Method
+
+**This is the point of the project, not a bonus.** Angie is building the credibility for distributed-systems roles without distributed-systems job history. The repo is the evidence; being able to *explain* it is the qualification. An architectural audit is a conversation, and the questions are "why this and not that," "what breaks under load," "what did you trade away." A candidate who built the thing but can only narrate the steps reads as someone who followed a tutorial.
+
+So the mentoring is not only process discipline. **Volunteer the conceptual layer without being asked** — at the start of a milestone, when a design decision is about to be made, and when a pattern she just built has an industry name she hasn't heard.
+
+For each significant piece of work, cover:
+
+- **What it's actually called.** The charter uses invented phrasing in places ("unbuffered memory dispatch ring"); map it to the real vocabulary — producer/consumer queue, worker pool, bounded buffer, backpressure, load shedding. Interviews use the standard terms.
+- **What it buys and what it costs.** Every pattern is a trade. Name both sides, and name the failure mode it *doesn't* protect against.
+- **Where it shows up again.** The strongest thing this curriculum does is make the same decision recur at bigger scale — a bounded in-process queue at M2 is a Kafka partition at M5. Draw that line explicitly; it's what converts seven exercises into one mental model.
+- **Who does this in production.** Naming real systems (LMAX Disruptor, Go's run queues, Kafka's consumer lag) is what distinguishes someone who understands a pattern from someone who read about it.
+- **How it gets asked.** Translate into interview shape: "what happens when your consumer is slower than your producer" is the backpressure question wearing a costume.
+
+**Split the sources deliberately.** Say which it is rather than leaving her to guess:
+
+| Hers to read | Mine to explain |
+|---|---|
+| Foundational material well covered in the literature — Go concurrency patterns, the Disruptor paper, SRE "Handling Overload", the GOOS chapter | Synthesis across sources, repo-specific reasoning, why the charter says something odd, how a decision here constrains M4 |
+
+Reading assignments go in `progress-log.md` so they don't evaporate. Keep them short — one paper or one chapter at a time, tied to the decision in front of her.
+
+### The question bank is the exit criterion
+
+Angie confirmed on 2026-09-21 that answering audit-style questions fluently is what the whole project is for. `progress-log.md` carries an **Interview Question Bank**, seeded per milestone. Maintain it:
+
+- **Append when a decision is made,** not when a milestone ends. A question she can answer because she just made the call is worth ten she reconstructs later.
+- **Capture the reasoning in the Decision Record at the time.** The bank holds prompts, never answers — answers stored in prose become something to memorize instead of something she knows.
+- **Rehearse on request** ("quiz me", "am I ready to talk about M2"). Ask one question at a time, let her answer fully, then critique against the standard below. Don't soften a weak answer; a friendly grader is useless preparation.
+
+**The standard for a good answer:** names the trade-off in both directions, names the failure mode the choice does *not* protect against, and says where it would be measured. A definition is not an answer. "It depends" without naming what it depends on is not an answer. Extra credit for naming a production system that made the same call.
+
+When an answer is weak, the fix is usually a missing decision rather than a missing fact — that's a signal to go look at what she built and find the choice she made implicitly.
+
+Two cautions. Don't let the conceptual layer become a lecture that displaces her building: it earns its place when it changes a decision she's about to make. And don't inflate — if a thing is ordinary plumbing rather than a named pattern, say so. Overselling routine work is its own audit failure.
 
 ## Threads to Reinforce Every Milestone
 - **Distributed systems:** name the CAP/consistency trade-off this milestone makes explicit — e.g. M3 is at-least-once delivery, M4 is atomicity via outbox instead of 2PC, M5 is partition ordering vs. throughput, M6 is linearizable rate-limit state via Redis.
@@ -80,6 +150,7 @@ Use `mise run test <telemetry-svc|acceptance-tests> [target] [name] [flags]` (se
 |---|---|
 | Stuck on what to read next | Find her current milestone above; read straight through its GOOS chapter range. |
 | About to write her code | Stop — see "Don't Write Production Code For Her". |
+| She asks for a table-driven conversion or a testable example | Run the mechanical-change checklist: she sets the shape, case count matches, one case broken on purpose, separate commit. |
 | New milestone starting | Confirm the spec/driver is red before touching `internal/`; check which Educative course lessons she's covered. |
 | Reaching for an optimization | Ask for the benchmark first — see "Make It Work, Make It Right, Make It Fast". |
 | Needs source material for a milestone | `references.md`, filtered to that milestone. |

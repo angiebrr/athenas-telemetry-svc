@@ -11,10 +11,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - The milestone roadmap with its GOOS (*Growing Object-Oriented Software, Guided by Tests*) cover-to-cover reading order
 - The make-it-work → make-it-right → make-it-fast sequencing rule (benchmark before optimizing)
 - `references.md`, the annotated course reference library
+- `progress-log.md` — the living state (current milestone/phase, reading position, gates, open debt, decision record). **Claude keeps it current without being asked**, and republishes `tracker.html` alongside it.
+- The rule to teach the *why*: name the industry term, the trade-off, where the pattern recurs at a later milestone, and how it gets asked in an interview
 
 Supporting context lives in `.claude/project-context.md` (the project charter: mission, engineer profile, milestone definitions).
 
-The short version: act as an advisor. Name patterns, sketch interfaces, outline trade-offs, review what she wrote, point at chapters. Do not produce function bodies for `internal/`, `models/`, or `specifications/`.
+The short version: act as an advisor. Name patterns, sketch interfaces, outline trade-offs, review what she wrote, point at chapters. Do not produce function bodies for `internal/`, `models/`, or `specifications/`. The one exception is mechanical test changes she explicitly asks for (table-driven conversions, testable examples) — `_test.go` only, behavior-preserving, never the Spec; limits are in the skill.
 
 ## Commands
 
@@ -42,7 +44,7 @@ Tests run with `-count=1` by default (`--no-force` to allow the cache).
 
 The project list lives once in `[vars] projects` in `mise.toml` and is templated into every task, so adding a third go project means editing one line.
 
-Editor tooling (`dlv`, `gopls`) is declared in `mise.dev.toml`, not `mise.toml` — run `MISE_ENV=dev mise install` locally to get it. CI sets no `MISE_ENV`, so `jdx/mise-action` installs only the Go toolchain and golangci-lint.
+Editor tooling (`dlv`, `gopls`) is declared in `mise.dev.toml`, not `mise.toml` — run `MISE_ENV=dev mise install` locally to get it. The workspace file maps the Go extension's tools to these by bare name via `go.alternateTools` (with auto-updates off) — without that, the extension `go install`s its own copies into GOBIN (mise's Go `bin/`), which shadows the mise pins; that's how a v1 golangci-lint once ran against the v2 config. CI sets no `MISE_ENV`, so `jdx/mise-action` installs only the Go toolchain and golangci-lint.
 
 Linting is configured repo-wide in `.golangci.yml` (golangci-lint **v2** schema; the version is pinned in `mise.toml` so the editor and CI agree). revive runs with `enable-all-rules`, minus a short disabled list documented inline. The `exported` rule is configured with `disableChecksOnMethods` specifically so the repo's `Type.Method does X` comment convention keeps working.
 
@@ -61,34 +63,61 @@ There is **no `go.work`** despite the project notes describing "Go workspaces" �
 
 This is the structural heart of the repo and spans three files across both modules:
 
-1. **`athenas-telemetry-svc/specifications/telemetry_spec.go`** — the Spec ("the Rules"). Declares the `TelemetryIngester` interface and `TelemetryIngesterSpec(t, ingester)`, a table of behavioral cases written against that interface only. It lives in the service module and is deliberately **exported, not `internal/`**, so the acceptance module can import it.
-2. **`athenas-acceptance-tests/internal/drivers/httpserver/httpserver_driver.go`** — a Driver ("the Plumbing"). Implements `TelemetryIngester` by making real HTTP calls, translating a non-`202` response into an `IngestError`.
+1. **`athenas-telemetry-svc/specifications/telemetry_spec.go`** — the Spec ("the Rules"). Declares the `TelemetryIngester` and `TelemetryQuerier` interfaces and `TelemetrySpec(t, ingester, querier)`, a table of behavioral cases written against those interfaces only. It lives in the service module and is deliberately **exported, not `internal/`**, so the acceptance module can import it.
+2. **`athenas-acceptance-tests/internal/drivers/httpserver/httpserver_driver.go`** — a Driver ("the Plumbing"). Implements `TelemetryIngester` and `TelemetryQuerier` by making real HTTP calls, translating a non-success response (anything but `202` on POST, `200` on GET) into a `TelemetryError`, or into the raw body when it is not JSON.
 3. **`athenas-acceptance-tests/tests/httpserver/athenas_server_test.go`** — wires a containerized server to the Driver and runs the Spec against it.
 
 The payoff: one Spec, many Drivers. Future milestones add drivers (SQS, multi-pod) that satisfy the same interface, and in-process adapters can run the same Spec as fast unit tests. **New behavior goes into the Spec (red) before any `internal/` code changes.**
 
 ### Acceptance test container lifecycle
 
-`athenas-acceptance-tests/internal/shared/docker.go` builds `deploy/Dockerfile` via Testcontainers with the **repo root** as build context (the Dockerfile copies `./athenas-telemetry-svc`). Docker **build** logs are bridged to `t.Log` via `BuildLogWriter`, and the running container's stdout/stderr via a `LogConsumer`; cleanup terminates the container. The consumer is mutex-guarded and its `stop` is registered *before* the container's cleanup so it runs *after* it (`t.Cleanup` is last-added-first-called) — that ordering is load-bearing, since terminating the container drains the shutdown lines worth keeping, and `t.Log` panics once a test completes.
+`athenas-acceptance-tests/internal/shared/shared_docker.go` builds `deploy/Dockerfile` via Testcontainers with the **repo root** as build context (the Dockerfile copies `./athenas-telemetry-svc`). Docker **build** logs are bridged to `t.Log` via `BuildLogWriter`, and the running container's stdout/stderr via a `LogConsumer`; cleanup terminates the container. The consumer is mutex-guarded and its `stop` is registered *before* the container's cleanup so it runs *after* it (`t.Cleanup` is last-added-first-called) — that ordering is load-bearing, since terminating the container drains the shutdown lines worth keeping, and `t.Log` panics once a test completes.
 
-`repoRoot()` resolves the root by `runtime.Caller(0)` and walking up three directories — **moving `docker.go` breaks the Docker build context silently**. This is documented in the code as a known, accepted fragility.
+`repoRoot()` resolves the root by `runtime.Caller(0)` and walking up three directories — **moving `shared_docker.go` breaks the Docker build context silently**. This is documented in the code as a known, accepted fragility.
 
 ### Service internals
 
-`cmd/athenas/main.go` → `api.NewServer()` (a `gin.Engine` wrapper) → `api.InitHandlers` registers `POST api.TelemetryPath` → `HandleIngestTelemetry` binds JSON, calls `ingest.Ingest`, and returns `202 Accepted`.
+`cmd/athenas/main.go` loads an `AppConfig` (`PORT`, `APP_ENV` ∈ `dev`/`prod`) via `config.InitEnv()`, builds a `data.Storer`, maps `APP_ENV` to an `api.ServerMode` (`prod` → `ReleaseMode`, else `DebugMode`), and passes both to `api.NewServer(svc, api.WithServerMode(mode))` (a `gin.Engine` wrapper; functional options, validated, returns an error). The environment-to-mode translation lives in `main`, the composition root, so `internal/api` never learns environment names; `ServerMode` wraps gin's mode strings so `main` never imports gin. `NewServer` still calls `gin.SetMode`, which is **process-global** — gin has no per-engine mode, and it only gates gin's own debug output (route listing, warnings, recovery detail), not middleware or performance. The image sets `APP_ENV=prod`, so the acceptance suite runs the release configuration. The variable is prefixed because POSIX `sh` reserves `ENV`. `api.InitHandlers` registers two routes:
 
-Transport and domain are separate as of M1. `internal/ingest` owns the rules (`Ingest` → `Validate`), and the handler only translates: `ingest.ValidateTelemetryError` becomes `400`, anything else `500`. Validation is deliberately **not** on `models.Telemetry` — `models` is exported, so a driver could otherwise call `Validate` client-side and pass the Spec without the server doing anything.
+| Route | Handler | Success |
+|---|---|---|
+| `POST api.TelemetryPath` (`/v1/telemetry`) | `HandleIngestTelemetry` | `202 Accepted` |
+| `GET api.QueryTelemetryPath` (`/v1/telemetry/:device_id`) | `HandleQueryTelemetry` | `200` + JSON array |
 
-The same `TelemetryIngesterSpec` runs at three levels: against `internal/ingest` directly (microseconds), against the gin engine via `httptest` (`internal/api/handler_test.go`, transport translation only), and against a container over real HTTP. `httpserver.Driver` **deliberately hardcodes** `/v1/telemetry` rather than importing `api.TelemetryPath` — it is a black-box client, and sharing the constant would let a route rename ship green.
+Three layers, dependencies flowing inward:
+
+- **`internal/api`** — transport only. Binds/serializes, and translates domain errors to status codes: `telemetry.ValidateTelemetryError` → `400`, `data.NotFoundError` → `404`, anything else → `500` with the internal text scrubbed and the real error sent to `slog`.
+- **`internal/telemetry`** — the domain rules. `Ingest` (→ `Validate` → store) and `Query` (device-ID check → store). Validation is deliberately **not** on `models.Telemetry` — `models` is exported, so a driver could otherwise call `Validate` client-side and pass the Spec without the server doing anything.
+- **`internal/data`** — the storage port (`data.Storer`) plus `InMemoryStore`, a mutex-guarded `map[string][]models.Telemetry`. `GetByDeviceID` returns a **deep** copy (the outer slice *and* each record's `Metrics`), because a shallow `slices.Clone` still leaks the metrics backing array to callers. `data_contract_test.go` holds `StorerContract`, run against the port by `data_in_memory_test.go`, so M4's Postgres store can be checked against the same suite.
+
+`GET /v1/telemetry/` (empty device ID) is **not routable** — gin's radix tree won't bind `:device_id` to an empty segment, and there's no GET handler at `/v1/telemetry` to redirect to, so it 404s. Empty-device-ID validation is therefore a `telemetry.Query` unit test, not a Spec case: the HTTP driver structurally cannot express that request.
+
+### Test taxonomy
+
+Two kinds of artifact, and conflating them is the usual source of confusion:
+
+- **Shared test bodies** — parameterized suites that take a subject and assert against it. They are not tests; `go test` never runs them directly. `specifications.TelemetrySpec(t, ingester, querier)` is a contract on the **driving port** (what a caller gets from the service). `StorerContract(t, store)` is a contract on a **driven port** (what any storage adapter must deliver).
+- **Test entry points** — `TestXxx(t)` functions that bind a concrete subject and invoke a body. The entry point, not the body, determines the level.
+
+| Entry point | Binds | Level |
+|---|---|---|
+| `TestAthenasTelemetryServer` | HTTP driver → container | acceptance / end-to-end |
+| `TestTelemetryService` | `telemetry.Service` → domain | subcutaneous (full behavior, below transport) |
+| `TestHandleIngestTelemetry` / `TestHandleQueryTelemetry` | gin engine via `httptest` | driving-adapter test |
+| `TestInMemoryStore` | in-memory store → `StorerContract` | driven-adapter conformance |
+| `TestQueryDeviceIDs`, `telemetry_validate_test.go` | domain functions | table-driven unit |
+
+`TelemetrySpec` currently runs at **two** levels — domain and container. `api_handler_test.go` used to run it too but now has hand-written transport cases instead, which is a reasonable split (the spec describes behavior; the handler tests describe status-code translation) but means transport is no longer spec-covered.
+
+**There are no test doubles anywhere in the repo.** `newTestServer` wires the real `InMemoryStore`, so every test is *sociable* in Fowler's sense. When a Postgres store lands at M4, the in-memory one becomes a genuine **fake** for the tests above it. `httpserver.Driver` **deliberately hardcodes** `/v1/telemetry` rather than importing `api.TelemetryPath` — it is a black-box client, and sharing the constant would let a route rename ship green.
 
 ## Known Debt (deliberate, tracked in TODOs)
 
-Don't "fix" these unprompted — several are milestone work she plans to do herself.
+Don't "fix" these unprompted — several are milestone work she plans to do herself. Claude keeps this list current as items are resolved; see the doc-maintenance note in the `self-study-mentor` skill.
 
-- **The Spec asserts only that invalid input fails, not how.** `internal/ingest.Ingest` currently has exactly one failure mode (validation), so "any error" and "validation error" describe the same set. Once M2 adds a second class — a full dispatch ring — that assertion starts hiding real bugs, and `httpserver.Driver` needs to carry error classification so the Spec can distinguish caller-fault from callee-fault across any transport. Deliberately deferred to M2.
-- **The handler echoes internal error text on its 500 path.** Harmless while every error is a validation error; an information leak the moment `Ingest` can fail internally. Same M2 trigger as above.
-- **`HandleIngestTelemetry` discards the payload** (`// TODO: do something with data`) — Milestone 2 work.
-- **No config layer.** The port is Gin's `0.0.0.0:8080` default, and `GIN_MODE=release` is set as a bare `ENV` in the Dockerfile. Both are placeholders for real configuration, which is M2 work.
+- **The Spec matches on error prose, not error class.** `TelemetrySpec` asserts with `ErrorContains(err, "missing device ID")` / `"data not found"`, so rewording a sentinel in `internal/telemetry` breaks the container acceptance suite. The durable fix is error classification carried by `httpserver.Driver`, letting the Spec distinguish caller-fault from callee-fault across any transport without depending on the message text. Still open.
+- **Device IDs are only checked for emptiness.** `telemetry.Query` rejects `""` and nothing else; no format, length, or charset rules. Tracked by TODOs in `api_handler.go` and `api_handler_test.go`.
+- **`Ingest`'s success promise is provisional.** The `TelemetryIngester` doc comment carries a TODO: whether a nil return guarantees immediate queryability is undecided until the dispatch ring's first commit.
 - **Complexity linting is off.** `cyclomatic`, `cognitive-complexity`, and `function-length` are disabled in `.golangci.yml` because the whole codebase currently measures ≤6 on all three, so any conventional threshold could not fire. Revisit when the dispatch ring lands and set the limit from measurement, not folklore.
 
 ## CI

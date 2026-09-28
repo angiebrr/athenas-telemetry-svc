@@ -1,4 +1,4 @@
-package ingest
+package telemetry
 
 import (
 	"github.com/angiebrr/athenas-telemetry-svc/models"
@@ -40,7 +40,7 @@ func Validate(data models.Telemetry) error {
 		return ErrMissingDeviceID
 	}
 
-	if data.Timestamp < 0 {
+	if data.Timestamp <= 0 {
 		return ErrInvalidTimestamp
 	}
 

@@ -18,7 +18,15 @@
       "**/athenas-telemetry-svc": true,
       "**/athenas-acceptance-tests": true,
     },
-    "go.lintTool": "golangci-lint",
+    "go.lintTool": "golangci-lint-v2",
+    // Resolve tools by name through mise's shims so the editor runs the versions mise pins, instead
+    // of copies the Go extension installs into GOBIN on its own.
+    "go.alternateTools": {
+      "golangci-lint-v2": "golangci-lint",
+      "gopls": "gopls",
+      "dlv": "dlv",
+    },
+    "go.toolsManagement.checkForUpdates": "off",
     "go.inlayHints.constantValues": true,
     "go.inlayHints.rangeVariableTypes": true,
     "go.lintOnSave": "workspace",
