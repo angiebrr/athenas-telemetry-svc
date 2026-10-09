@@ -9,7 +9,7 @@ Published tracker: `.claude/skills/self-study-mentor/tracker.html` → https://c
 ## Current Position
 
 - **Milestone:** M2 — In-Memory Concurrency & Buffering (phase 1 of 3 complete)
-- **Branch:** `abreuer-M2-add-query`
+- **Branch:** `main` — PR #5 (query, store, config) merged as `5b40d90` on 2026-09-28
 - **GOOS:** ch. 7 in progress (M2's range is 6–8)
 - **Educative:** Course 1, "What distributed systems achieve for us" (early)
 - **Last verified:** 2026-09-28 — full `mise run test` green at `b495b07` (the review follow-ups: `api.ServerMode` options, deep-copy contract case, lint path fix): all five service packages plus the acceptance container suite. `mise run test telemetry-svc --race` clean. Lint 0 issues in both modules.
@@ -26,7 +26,9 @@ M2 was rescoped by Angie on 2026-08-26 into three ordered phases, because the ch
 | 2. Right | Dispatch ring / worker pool — the answer to making `202 Accepted` *true*, not a data-race fix (the store's mutex already handles that) | Not started |
 | 3. Fast | Benchmark (`--bench --memprofile`), then the charter's 100k RPS / allocation work | Not started |
 
-A seam refactor sits between phases 1 and 2: `HandleQueryTelemetry` currently holds `data.Storer` and threads it into `telemetry.Query`, so transport carries the storage port through itself. The domain should own its store and the handler should hold only the domain. Do it before the ring — the ring lives behind that same seam.
+The seam refactor between phases 1 and 2 is **done** (merged in PR #5): handlers hold only `*telemetry.Service`, which owns its `data.Storer`. The ring goes behind that seam.
+
+**Phase 2 order (2026-09-28):** decide what a nil `Ingest` promises (read-your-writes vs. accepted-only) → Spec red → ring in `internal/engine` with graceful shutdown (`main` has none today) → error classification in the driver (a full queue is `Ingest`'s first callee-fault). Design walkthrough given 2026-09-28; decisions pending from Angie.
 
 **Reading position (2026-09-21):** GOOS ch. 7 in progress (M2's range is 6–8). Educative course 1 early — "What distributed systems achieve for us." The build is ahead of the theory after a surgery break; the agreed gate is that course 1 finishes before M3 opens, since SQS and at-least-once delivery are course 2's lab.
 
@@ -102,6 +104,7 @@ Not milestone-scoped; these recur at every milestone and the answers get richer 
 - What does `-race` actually prove? What does it miss?
 - `GetByDeviceID` hands back a slice — what's the risk, and why is a mutex not enough?
 - What's the production failure mode of an unbounded queue?
+- Why buffer in memory at all when you could write straight to SQS? What does each give up: latency, cost per request, durability of the `202`? Which production clients buffer in-process anyway?
 - Why a mutex here rather than a single owning goroutine? When would you switch?
 
 - Where does your service get its configuration, and in what precedence order? What happens if the config file is missing?

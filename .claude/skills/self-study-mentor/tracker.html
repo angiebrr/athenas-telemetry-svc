@@ -458,7 +458,7 @@
       </div>
       <div class="stat">
         <dt>Branch</dt>
-        <dd class="mono">abreuer-M2-add-query</dd>
+        <dd class="mono">main &middot; PR #5 merged</dd>
       </div>
       <div class="stat">
         <dt>Last verified</dt>
@@ -504,7 +504,7 @@
             and draining.
           </p>
           <div class="phase-evidence">
-            <span>blocked on: seam refactor, PR merge</span>
+            <span>first decision: what a nil <code>Ingest</code> promises</span>
           </div>
         </div>
       </article>
@@ -535,32 +535,32 @@
       <ol class="queue">
         <li>
           <span class="idx">01</span>
-          <span class="what">Finish GOOS ch. 7
-            <span class="why">&ldquo;Achieving Object-Oriented Design&rdquo; &mdash; the chapter that describes the refactor in step 2.</span>
+          <span class="what">Finish GOOS ch. 7 &middot; ch. 8
+            <span class="why">The build is ahead of the theory. M2's block is 6&ndash;8.</span>
           </span>
         </li>
         <li>
           <span class="idx">02</span>
-          <span class="what">Seam refactor, TODO cleanup &middot; config landed
-            <span class="why">One adapter carrying both operations; narrow interfaces at each handler. Domain owns the store, transport stops threading it through.</span>
+          <span class="what">Decide what <code>202</code> promises
+            <span class="why">Read-your-writes or accepted-only. Settles the Spec TODO; everything in the ring follows from it.</span>
           </span>
         </li>
         <li>
           <span class="idx">03</span>
-          <span class="what">PR &rarr; merge the query work
-            <span class="why">Branch is green and complete. Don't let a finished branch age against main.</span>
+          <span class="what">Spec red for the new promise
+            <span class="why">Outside-in: the Spec changes before <code>internal/engine</code> exists.</span>
           </span>
         </li>
         <li>
           <span class="idx">04</span>
-          <span class="what">GOOS ch. 8 &middot; push Educative course 1
-            <span class="why">The build is ahead of the theory. Close the gap before M3, not during it.</span>
+          <span class="what">Build the dispatch ring + graceful shutdown
+            <span class="why">Justify buffered vs. unbuffered, full-queue policy, ordering, and who closes the channel before writing it. <code>main</code> has no shutdown today; a buffer makes that lossy.</span>
           </span>
         </li>
         <li>
           <span class="idx">05</span>
-          <span class="what">Build the dispatch ring
-            <span class="why">Phase 2. Justify buffered vs. unbuffered, ownership of close, and behavior under backpressure before writing it.</span>
+          <span class="what">Error classification in the driver
+            <span class="why">Due on the ring's first commit: a full queue is the first callee-fault <code>Ingest</code> can return.</span>
           </span>
         </li>
         <li>
@@ -677,6 +677,8 @@
           <span class="tag">aliasing &middot; encapsulation</span></span></li>
         <li><span class="q">What's the production failure mode of an unbounded queue?
           <span class="tag">OOM &middot; unbounded latency</span></span></li>
+        <li><span class="q">Why buffer in memory at all when you could write straight to SQS?
+          <span class="tag">batching &middot; failure isolation &middot; durability of the 202</span></span></li>
         <li><span class="q">Your framework only offers a global mode switch. Where did you call it, and what does that choice hide?
           <span class="tag">global state &middot; composition root</span></span></li>
       </ol>
