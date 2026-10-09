@@ -504,7 +504,7 @@
             and draining.
           </p>
           <div class="phase-evidence">
-            <span>first decision: what a nil <code>Ingest</code> promises</span>
+            <span>decided 2026-10-09: <code>202</code> = fire-and-forget &middot; next: full-queue policy</span>
           </div>
         </div>
       </article>
@@ -541,14 +541,14 @@
         </li>
         <li>
           <span class="idx">02</span>
-          <span class="what">Decide what <code>202</code> promises
-            <span class="why">Read-your-writes or accepted-only. Settles the Spec TODO; everything in the ring follows from it.</span>
+          <span class="what">Decide the full-queue policy
+            <span class="why"><code>202</code> settled as fire-and-forget. Next: block, shed with <code>503</code>, or drop &mdash; and worker count vs. per-device ordering.</span>
           </span>
         </li>
         <li>
           <span class="idx">03</span>
           <span class="what">Spec red for the new promise
-            <span class="why">Outside-in: the Spec changes before <code>internal/engine</code> exists.</span>
+            <span class="why">Rewrite the port doc; ingest-then-query cases poll. Outside-in: the Spec changes before <code>internal/engine</code> exists.</span>
           </span>
         </li>
         <li>
@@ -679,6 +679,8 @@
           <span class="tag">OOM &middot; unbounded latency</span></span></li>
         <li><span class="q">Why buffer in memory at all when you could write straight to SQS?
           <span class="tag">batching &middot; failure isolation &middot; durability of the 202</span></span></li>
+        <li><span class="q">You chose fire-and-forget over group commit. What did you trade, what would make you switch, and how would you know your loss rate?
+          <span class="tag">at-most-once &middot; end-to-end argument</span></span></li>
         <li><span class="q">Your framework only offers a global mode switch. Where did you call it, and what does that choice hide?
           <span class="tag">global state &middot; composition root</span></span></li>
       </ol>
@@ -758,7 +760,7 @@
         <ul>
           <li><strong>Spec matches error prose, not class.</strong> Rewording a sentinel breaks the container suite. Fix is driver-carried classification.</li>
           <li><strong>Device IDs only checked for emptiness.</strong> No format, length, or charset rules.</li>
-          <li><strong><code>Ingest</code>'s promise is provisional.</strong> Port docs written; whether nil means queryable-now waits on the ring's first commit.</li>
+          <li><strong><code>Ingest</code>'s promise: decided, Spec pending.</strong> Fire-and-forget (accepted, eventually queryable, at-most-once). Closes when the Spec doc and polling cases land.</li>
           <li><strong>Complexity linting off.</strong> Everything measures &le;6, so no threshold could fire. Set it from measurement once the ring lands.</li>
         </ul>
       </div>
@@ -767,7 +769,7 @@
   </section>
 
   <footer>
-    <span>Updated 2026-09-28</span>
+    <span>Updated 2026-10-09</span>
     <span>Source of truth: <code>progress-log.md</code></span>
     <span>Claude maintains both</span>
   </footer>
