@@ -541,7 +541,7 @@
         </li>
         <li>
           <span class="idx">02</span>
-          <span class="what">Decide worker count vs. per-device ordering
+          <span class="what">Read <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch01" target="_blank" rel="noopener">Study Notes ch. 1</a>; decide worker count vs. per-device ordering
             <span class="why"><code>202</code> = fire-and-forget and a full queue = shed with <code>503</code> are settled. N workers can reorder one device's readings; one worker can't.</span>
           </span>
         </li>
@@ -762,7 +762,6 @@
         <ul>
           <li><strong>Spec matches error prose, not class.</strong> Rewording a sentinel breaks the container suite. Fix is driver-carried classification.</li>
           <li><strong>Device IDs only checked for emptiness.</strong> No format, length, or charset rules.</li>
-          <li><strong><code>Ingest</code>'s promise: decided, Spec pending.</strong> Fire-and-forget (accepted, eventually queryable, at-most-once). Closes when the Spec doc and polling cases land.</li>
           <li><strong>Complexity linting off.</strong> Everything measures &le;6, so no threshold could fire. Set it from measurement once the ring lands.</li>
         </ul>
       </div>
@@ -773,6 +772,7 @@
   <footer>
     <span>Updated 2026-10-09</span>
     <span>Source of truth: <code>progress-log.md</code></span>
+    <span><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake" target="_blank" rel="noopener">Study notes</a></span>
     <span>Claude maintains both</span>
   </footer>
 

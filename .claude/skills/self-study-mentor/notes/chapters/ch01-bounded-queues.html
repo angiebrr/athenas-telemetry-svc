@@ -1,0 +1,579 @@
+<div class="chapter-root">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="mk" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+    <marker id="ah-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="mk-acc" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+    <marker id="ah-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="mk-bad" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+    <marker id="ah-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="mk-muted" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+  </defs>
+</svg>
+
+<article class="chapter">
+
+  <header>
+    <p class="eyebrow">Chapter 1 &middot; Milestone 2, phase 2 (&ldquo;make it right&rdquo;)</p>
+    <h1>Bounded Queues and Worker Pools</h1>
+    <p class="lede">
+      Today the handler writes each reading to the store before it answers. This chapter is about
+      putting a fixed-size queue between the two, so the answer goes back as soon as the reading is
+      in memory, and about everything that one change makes you decide.
+    </p>
+  </header>
+
+  <dl class="status">
+    <div><dt>Settled</dt><dd><span class="chip chip-ok">decided</span> <code>202</code> means accepted into memory (fire-and-forget)</dd></div>
+    <div><dt>Settled</dt><dd><span class="chip chip-ok">decided</span> A full queue sheds with <code>503</code></dd></div>
+    <div><dt>Open</dt><dd><span class="chip chip-warn">yours</span> How many workers, and does one device's order matter?</dd></div>
+    <div><dt>Deferred</dt><dd><span class="chip chip-wait">phase 3</span> Queue capacity, set from a benchmark</dd></div>
+  </dl>
+
+  <nav class="contents" aria-label="Sections">
+    <p class="eyebrow">In this chapter</p>
+    <ol>
+      <li><button type="button" data-jump="s1"><span>1</span>What changes</button></li>
+      <li><button type="button" data-jump="s2"><span>2</span>The vocabulary</button></li>
+      <li><button type="button" data-jump="s3"><span>3</span>What a ring buffer is</button></li>
+      <li><button type="button" data-jump="s4"><span>4</span>Accept, shed, or reject</button></li>
+      <li><button type="button" data-jump="s5"><span>5</span>Workers and ordering</button></li>
+      <li><button type="button" data-jump="s6"><span>6</span>Ownership and shutdown</button></li>
+      <li><button type="button" data-jump="s7"><span>7</span>What capacity buys</button></li>
+      <li><button type="button" data-jump="s8"><span>8</span>Where this shows up again</button></li>
+      <li><button type="button" data-jump="s9"><span>9</span>Assignment</button></li>
+    </ol>
+  </nav>
+
+  <div class="callout read">
+    <h3>Read first</h3>
+    <ul>
+      <li><a href="https://quii.gitbook.io/learn-go-with-tests" target="_blank" rel="noopener"><em>Learn Go with Tests</em></a>: the Concurrency, Select, Sync and Context chapters. These cover the Go building blocks this chapter assumes.</li>
+      <li><a href="https://sre.google/sre-book/handling-overload/" target="_blank" rel="noopener">Google SRE book, ch. 21 &ldquo;Handling Overload&rdquo;</a>. The source for the shedding vocabulary in section 4.</li>
+      <li><a href="https://lmax-exchange.github.io/disruptor/disruptor.html" target="_blank" rel="noopener">The LMAX Disruptor paper</a>. A production ring buffer designed around cache lines, the part of this topic closest to your C++ background. Read it now; its techniques are phase 3 material, not phase 2.</li>
+    </ul>
+  </div>
+
+  <!-- ================================================================ -->
+  <section id="s1">
+    <h2><span class="sec">&sect;1</span>What changes</h2>
+    <p>
+      Moving one arrow is the whole change. Today the <code>202</code> is sent after the store write
+      finishes. With a queue, it is sent after the reading is placed in memory, and a separate
+      goroutine does the write later.
+    </p>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 720 250" role="img" aria-label="Two request paths. Today: the handler writes to the store, then returns 202. With the queue: the handler puts the reading in the queue and returns 202 immediately; a worker writes to the store later.">
+          <text class="d-tb" x="20" y="30">Today</text>
+          <rect class="d-box" x="20"  y="45" width="90"  height="40" rx="6"/><text class="d-t" x="65"  y="70" text-anchor="middle">client</text>
+          <rect class="d-box" x="170" y="45" width="90"  height="40" rx="6"/><text class="d-t" x="215" y="70" text-anchor="middle">handler</text>
+          <rect class="d-box" x="610" y="45" width="90"  height="40" rx="6"/><text class="d-t" x="655" y="70" text-anchor="middle">store</text>
+          <line class="d-line" x1="110" y1="56" x2="168" y2="56" marker-end="url(#ah)"/><text class="d-ts" x="139" y="50" text-anchor="middle">POST</text>
+          <line class="d-line" x1="260" y1="56" x2="608" y2="56" marker-end="url(#ah)"/><text class="d-ts" x="435" y="50" text-anchor="middle">1 · write</text>
+          <line class="d-dash" x1="610" y1="74" x2="262" y2="74" marker-end="url(#ah-muted)"/><text class="d-ts" x="435" y="94" text-anchor="middle">2 · ok</text>
+          <line class="d-acc" x1="170" y1="74" x2="112" y2="74" marker-end="url(#ah-acc)"/><text class="d-tacc" x="139" y="98" text-anchor="middle">3 · 202</text>
+
+          <text class="d-tb" x="20" y="140">With the queue</text>
+          <rect class="d-box" x="20"  y="155" width="90" height="40" rx="6"/><text class="d-t" x="65"  y="180" text-anchor="middle">client</text>
+          <rect class="d-box" x="170" y="155" width="90" height="40" rx="6"/><text class="d-t" x="215" y="180" text-anchor="middle">handler</text>
+          <rect class="d-fill" x="320" y="155" width="30" height="40"/>
+          <rect class="d-fill" x="350" y="155" width="30" height="40"/>
+          <rect class="d-fill" x="380" y="155" width="30" height="40"/>
+          <rect class="d-soft" x="410" y="155" width="30" height="40"/>
+          <rect class="d-soft" x="440" y="155" width="30" height="40"/>
+          <text class="d-ts" x="395" y="147" text-anchor="middle">queue (fixed size)</text>
+          <rect class="d-box" x="510" y="155" width="70" height="40" rx="6"/><text class="d-t" x="545" y="180" text-anchor="middle">worker</text>
+          <rect class="d-box" x="610" y="155" width="90" height="40" rx="6"/><text class="d-t" x="655" y="180" text-anchor="middle">store</text>
+          <line class="d-line" x1="110" y1="166" x2="168" y2="166" marker-end="url(#ah)"/><text class="d-ts" x="139" y="160" text-anchor="middle">POST</text>
+          <line class="d-line" x1="260" y1="166" x2="318" y2="166" marker-end="url(#ah)"/><text class="d-ts" x="290" y="160" text-anchor="middle">1 · put</text>
+          <line class="d-acc" x1="170" y1="184" x2="112" y2="184" marker-end="url(#ah-acc)"/><text class="d-tacc" x="139" y="210" text-anchor="middle">2 · 202</text>
+          <line class="d-line" x1="470" y1="175" x2="508" y2="175" marker-end="url(#ah)"/><text class="d-ts" x="489" y="212" text-anchor="middle">3 · take</text>
+          <line class="d-line" x1="580" y1="175" x2="608" y2="175" marker-end="url(#ah)"/><text class="d-ts" x="594" y="212" text-anchor="middle">4 · write</text>
+          <text class="d-ts" x="440" y="240" text-anchor="middle">steps 3 and 4 happen later, on another goroutine, after the client has its answer</text>
+        </svg>
+      </div>
+      <figcaption><b>Fig 1.1</b>The <code>202</code> (in colour) moves from after the write to after the put. Everything else in this chapter follows from that move.</figcaption>
+    </figure>
+
+    <p>That move creates four questions that the synchronous version never had to answer:</p>
+    <ol>
+      <li>What does the client know when it gets a <code>202</code>? <em>Settled: the reading is in memory, nothing more.</em></li>
+      <li>What happens when the queue has no room? <em>Settled: shed with <code>503</code>.</em></li>
+      <li>If more than one goroutine takes from the queue, can one device's readings get reordered? <em>Open. Section 5.</em></li>
+      <li>What happens to readings still in the queue when the process is told to stop? <em>Section 6.</em></li>
+    </ol>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s2">
+    <h2><span class="sec">&sect;2</span>The vocabulary</h2>
+    <p>
+      The charter calls this an &ldquo;unbuffered memory dispatch ring&rdquo;. That phrase isn't
+      standard, and it contradicts itself, because a ring buffer is a buffer. Use the standard terms
+      in interviews:
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Term</th><th>Meaning here</th></tr></thead>
+        <tbody>
+          <tr><td>Producer / consumer queue</td><td>The overall pattern. Handlers produce readings; workers consume them.</td></tr>
+          <tr><td>Bounded queue</td><td>A queue with a fixed capacity. The bound is what makes overload visible instead of turning it into memory growth.</td></tr>
+          <tr><td>Ring buffer</td><td>One way to store a bounded queue: a fixed array whose read and write positions wrap around. A buffered Go channel is one.</td></tr>
+          <tr><td>Worker pool</td><td>A fixed number of goroutines taking from the queue. The count limits how many store writes run at once.</td></tr>
+          <tr><td>Backpressure</td><td>Slowing the producer down when the consumer can't keep up. Blocking the handler is backpressure.</td></tr>
+          <tr><td>Load shedding</td><td>Refusing work you can't handle, quickly and on purpose. Your <code>503</code> is load shedding.</td></tr>
+          <tr><td>Drain</td><td>On shutdown, finishing what's already queued before exiting.</td></tr>
+          <tr><td>At-most-once</td><td>Each accepted reading is written once or not at all. A crash loses whatever is queued.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      It's also worth knowing the actor model as a way to look at this. Each worker is a goroutine
+      draining a mailbox. That framing is useful for &ldquo;who owns this state?&rdquo; questions.
+      Don't adopt an actor framework, though; building the mailbox by hand is what this milestone is for.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s3">
+    <h2><span class="sec">&sect;3</span>What a ring buffer is</h2>
+    <p>
+      A ring buffer is a fixed array plus two positions: where the next item will be written, and
+      where the next item will be read. Both only move forward. When either reaches the end of the
+      array it wraps back to slot 0, so the array is reused forever with no allocation after it is
+      created.
+    </p>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 720 290" role="img" aria-label="An eight-slot ring buffer holding four readings in slots 2 to 5, with the read position at slot 2 and the write position at slot 6, wrapping from slot 7 back to slot 0. Below, an unbuffered channel has no slots and hands each item directly from sender to receiver.">
+          <text class="d-tb" x="20" y="74">cap 8</text>
+          <text class="d-tacc" x="270" y="20" text-anchor="middle">read here next</text>
+          <line class="d-acc" x1="270" y1="26" x2="270" y2="47" marker-end="url(#ah-acc)"/>
+          <text class="d-tb" x="510" y="20" text-anchor="middle">write here next</text>
+          <line class="d-line" x1="510" y1="26" x2="510" y2="47" marker-end="url(#ah)"/>
+
+          <rect class="d-soft" x="120" y="50" width="60" height="40"/>
+          <rect class="d-soft" x="180" y="50" width="60" height="40"/>
+          <rect class="d-fill" x="240" y="50" width="60" height="40"/><text class="d-tm" x="270" y="75" text-anchor="middle">A1</text>
+          <rect class="d-fill" x="300" y="50" width="60" height="40"/><text class="d-tm" x="330" y="75" text-anchor="middle">B1</text>
+          <rect class="d-fill" x="360" y="50" width="60" height="40"/><text class="d-tm" x="390" y="75" text-anchor="middle">A2</text>
+          <rect class="d-fill" x="420" y="50" width="60" height="40"/><text class="d-tm" x="450" y="75" text-anchor="middle">C1</text>
+          <rect class="d-soft" x="480" y="50" width="60" height="40"/>
+          <rect class="d-soft" x="540" y="50" width="60" height="40"/>
+          <text class="d-ts" x="150" y="106" text-anchor="middle">0</text>
+          <text class="d-ts" x="210" y="106" text-anchor="middle">1</text>
+          <text class="d-ts" x="270" y="106" text-anchor="middle">2</text>
+          <text class="d-ts" x="330" y="106" text-anchor="middle">3</text>
+          <text class="d-ts" x="390" y="106" text-anchor="middle">4 · write</text>
+          <text class="d-ts" x="450" y="106" text-anchor="middle">5</text>
+          <text class="d-ts" x="510" y="106" text-anchor="middle">6</text>
+          <text class="d-ts" x="570" y="106" text-anchor="middle">7</text>
+          <path class="d-line" d="M 570 114 C 570 160, 150 160, 150 116" marker-end="url(#ah)"/>
+          <text class="d-ts" x="360" y="172" text-anchor="middle">after slot 7, both positions wrap to slot 0</text>
+          <text class="d-ts" x="620" y="66">count = 4</text>
+          <text class="d-ts" x="620" y="82">full at 8</text>
+
+          <line class="d-grid" x1="20" y1="192" x2="700" y2="192"/>
+
+          <text class="d-tb" x="20" y="234">cap 0</text>
+          <rect class="d-box" x="120" y="210" width="140" height="40" rx="6"/><text class="d-t" x="190" y="235" text-anchor="middle">sender</text>
+          <rect class="d-box" x="460" y="210" width="140" height="40" rx="6"/><text class="d-t" x="530" y="235" text-anchor="middle">receiver</text>
+          <line class="d-line" x1="262" y1="230" x2="458" y2="230" marker-end="url(#ah)" marker-start="url(#ah)"/>
+          <text class="d-ts" x="360" y="222" text-anchor="middle">direct hand-off</text>
+          <text class="d-ts" x="360" y="248" text-anchor="middle">each side waits for the other</text>
+          <text class="d-ts" x="360" y="276" text-anchor="middle">no slots, so the only "room" is an idle receiver</text>
+        </svg>
+      </div>
+      <figcaption><b>Fig 1.2</b>Top: an 8-slot ring holding four readings. Reads come from slot 2, the next write goes to slot 6. Bottom: an unbuffered channel stores nothing; a send completes only when a receiver takes it.</figcaption>
+    </figure>
+
+    <h3>A buffered Go channel is a ring buffer</h3>
+    <p>
+      Inside the runtime, a channel is a struct called <code>hchan</code>. It holds a fixed array
+      (<code>buf</code>), a write position (<code>sendx</code>), a read position (<code>recvx</code>), a
+      count (<code>qcount</code>), two lists of goroutines waiting to send or receive, and a lock. So
+      <code>make(chan T, 8)</code> is exactly Fig 1.2's top row, protected by a mutex. You don't need
+      to build the ring yourself; you need to decide what surrounds it.
+    </p>
+    <p>
+      An unbuffered channel (capacity 0) is the bottom row. With unbuffered channels and a pool of
+      <em>N</em> workers, your queue capacity is effectively &ldquo;however many workers are idle right now&rdquo;.
+      This is why the charter's &ldquo;unbuffered&rdquo; and &ldquo;ring&rdquo; can't both be meant literally.
+    </p>
+
+    <div class="callout recur">
+      <h3>Who does this in production</h3>
+      <ul>
+        <li><strong>The Go scheduler itself.</strong> Each processor (P) keeps a local run queue of goroutines: a 256-slot ring buffer. When it fills, half of it spills to a global queue. That's a fourth full-queue policy, &ldquo;overflow to somewhere slower&rdquo;.</li>
+        <li><strong>LMAX Disruptor.</strong> A ring buffer that avoids locks by giving each slot a sequence number, and pads fields to whole cache lines so producer and consumer counters never share one. The &ldquo;Read first&rdquo; paper.</li>
+        <li><strong>Kafka's producer client.</strong> Buffers records in memory before sending. When <code>buffer.memory</code> is full, <code>send()</code> blocks for up to <code>max.block.ms</code>, then fails. That's block-then-shed.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s4">
+    <h2><span class="sec">&sect;4</span>Accept, shed, or reject</h2>
+    <p>
+      Every request now leaves the handler by one of three routes. The order of the two checks is a
+      design decision: validation comes first, so a malformed reading never takes up a slot that a good
+      one could have used.
+    </p>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 720 230" role="img" aria-label="Request routing. A POST is validated; invalid readings get 400. Valid readings are offered to the queue; if a slot is free the reading is queued and the client gets 202; if the queue is full the client gets 503 with Retry-After.">
+          <rect class="d-box" x="20"  y="95" width="80"  height="40" rx="6"/><text class="d-t" x="60"  y="120" text-anchor="middle">POST</text>
+          <rect class="d-box" x="150" y="95" width="100" height="40" rx="6"/><text class="d-t" x="200" y="120" text-anchor="middle">valid?</text>
+          <rect class="d-box" x="310" y="95" width="120" height="40" rx="6"/><text class="d-t" x="370" y="120" text-anchor="middle">slot free?</text>
+          <rect class="d-ok"   x="530" y="35"  width="170" height="40" rx="6"/><text class="d-tok"   x="615" y="60"  text-anchor="middle">202 Accepted</text>
+          <rect class="d-warn" x="530" y="155" width="170" height="40" rx="6"/><text class="d-twarn" x="615" y="180" text-anchor="middle">503 + Retry-After</text>
+          <rect class="d-soft" x="140" y="175" width="120" height="40" rx="6"/><text class="d-t" x="200" y="200" text-anchor="middle">400 Bad Request</text>
+
+          <line class="d-line" x1="100" y1="115" x2="148" y2="115" marker-end="url(#ah)"/>
+          <line class="d-line" x1="250" y1="115" x2="308" y2="115" marker-end="url(#ah)"/><text class="d-ts" x="279" y="108" text-anchor="middle">yes</text>
+          <line class="d-line" x1="200" y1="135" x2="200" y2="173" marker-end="url(#ah)"/><text class="d-ts" x="208" y="158">no</text>
+          <polyline class="d-line" points="430,105 480,105 480,55 528,55" marker-end="url(#ah)"/><text class="d-ts" x="488" y="86">yes: put it in</text>
+          <polyline class="d-line" points="430,125 480,125 480,175 528,175" marker-end="url(#ah)"/><text class="d-ts" x="488" y="150">no: full</text>
+          <text class="d-ts" x="615" y="95" text-anchor="middle">client's job is done</text>
+          <text class="d-ts" x="615" y="215" text-anchor="middle">refused, safe to retry</text>
+        </svg>
+      </div>
+      <figcaption><b>Fig 1.3</b>The three ways out of the handler. Only the green route puts anything in the queue. The amber route is the only failure that is the server's fault.</figcaption>
+    </figure>
+
+    <h3>The offer never waits</h3>
+    <p>
+      &ldquo;Slot free?&rdquo; has to be a check that answers immediately. If the put waits for room,
+      you've chosen blocking, not shedding, and a burst turns into handler goroutines piling up
+      behind a full queue. Go has a direct way to say &ldquo;try to send, and if you can't right now, do
+      something else&rdquo;. It's one of the <code>select</code> forms in <em>Learn Go with Tests</em>.
+    </p>
+    <p class="pseudo-label">Pseudocode, behaviour only</p>
+<pre class="pseudo"><span class="k">offer</span>(reading):
+    <span class="k">if</span> a slot is free right now:
+        put reading in it
+        <span class="k">return</span> accepted
+    <span class="k">return</span> full                <span class="c">// never wait for room</span></pre>
+
+    <h3>Why <code>503</code> and not <code>429</code></h3>
+    <p>
+      <code>429 Too Many Requests</code> says &ldquo;<em>you</em> are over your limit&rdquo;. A full queue
+      says the whole server is overloaded, whoever is calling. That's <code>503 Service Unavailable</code>.
+      <code>Retry-After</code> tells a well-behaved client when to try again. Pick a value now and
+      measure it in phase 3. Per-client limits, and so <code>429</code>, arrive at M6 with Redis.
+    </p>
+
+    <h3>What this does to error classification</h3>
+    <p>
+      Until now every error from <code>Ingest</code> was the caller's fault. A full queue is the first
+      that's the server's fault, and the first worth retrying. The HTTP driver and the Spec have to tell
+      the two apart from something sturdier than the message text. That's the open
+      &ldquo;Spec matches on error prose&rdquo; debt, now due.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s5">
+    <h2><span class="sec">&sect;5</span>Workers and ordering</h2>
+    <p>
+      One worker draining the queue writes readings in exactly the order they arrived, but it caps
+      throughput at one store write at a time. More workers raise that cap, and give up ordering:
+      two readings from the same device can be taken by different workers and finish in either order.
+    </p>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 720 290" role="img" aria-label="Left: one shared queue feeding two workers; device A's readings A1 and A2 go to different workers and are stored as A2 then A1. Right: a hash of the device ID picks one of two queues, each with its own worker; device A's readings stay on one worker and are stored in order.">
+          <text class="d-tb" x="180" y="24" text-anchor="middle">One shared queue, two workers</text>
+          <text class="d-tb" x="545" y="24" text-anchor="middle">One queue per worker, chosen by device</text>
+          <line class="d-grid" x1="360" y1="40" x2="360" y2="270"/>
+
+          <rect class="d-fill" x="20" y="120" width="45" height="40"/><text class="d-tm" x="42" y="145" text-anchor="middle">A1</text>
+          <rect class="d-fill" x="65" y="120" width="45" height="40"/><text class="d-tm" x="87" y="145" text-anchor="middle">A2</text>
+          <text class="d-ts" x="65" y="178" text-anchor="middle">queue</text>
+          <rect class="d-box" x="160" y="70"  width="70" height="36" rx="6"/><text class="d-t" x="195" y="93"  text-anchor="middle">W1</text>
+          <rect class="d-box" x="160" y="176" width="70" height="36" rx="6"/><text class="d-t" x="195" y="199" text-anchor="middle">W2</text>
+          <rect class="d-box" x="275" y="120" width="70" height="40" rx="6"/><text class="d-t" x="310" y="145" text-anchor="middle">store</text>
+          <line class="d-line" x1="110" y1="128" x2="158" y2="92"  marker-end="url(#ah)"/><text class="d-tm" x="124" y="100">A1</text>
+          <line class="d-line" x1="110" y1="152" x2="158" y2="190" marker-end="url(#ah)"/><text class="d-tm" x="124" y="192">A2</text>
+          <line class="d-line" x1="230" y1="88"  x2="273" y2="128" marker-end="url(#ah)"/><text class="d-ts" x="258" y="100">slow</text>
+          <line class="d-line" x1="230" y1="194" x2="273" y2="154" marker-end="url(#ah)"/><text class="d-ts" x="258" y="192">fast</text>
+          <text class="d-tbad" x="180" y="248" text-anchor="middle">stored: A2, then A1</text>
+          <text class="d-ts" x="180" y="268" text-anchor="middle">one device, out of order</text>
+
+          <rect class="d-box" x="380" y="120" width="86" height="40" rx="6"/><text class="d-tm" x="423" y="145" text-anchor="middle">hash(id)</text>
+          <rect class="d-fill" x="500" y="70"  width="40" height="36"/><text class="d-tm" x="520" y="93"  text-anchor="middle">A1</text>
+          <rect class="d-fill" x="540" y="70"  width="40" height="36"/><text class="d-tm" x="560" y="93"  text-anchor="middle">A2</text>
+          <rect class="d-fill" x="500" y="176" width="40" height="36"/><text class="d-tm" x="520" y="199" text-anchor="middle">B1</text>
+          <rect class="d-soft" x="540" y="176" width="40" height="36"/>
+          <rect class="d-box" x="605" y="70"  width="44" height="36" rx="6"/><text class="d-t" x="627" y="93"  text-anchor="middle">W0</text>
+          <rect class="d-box" x="605" y="176" width="44" height="36" rx="6"/><text class="d-t" x="627" y="199" text-anchor="middle">W1</text>
+          <rect class="d-box" x="664" y="120" width="50" height="40" rx="6"/><text class="d-t" x="689" y="145" text-anchor="middle">store</text>
+          <line class="d-line" x1="466" y1="130" x2="498" y2="92"  marker-end="url(#ah)"/><text class="d-tm" x="470" y="100">A</text>
+          <line class="d-line" x1="466" y1="150" x2="498" y2="192" marker-end="url(#ah)"/><text class="d-tm" x="470" y="192">B</text>
+          <line class="d-line" x1="580" y1="88"  x2="603" y2="88"  marker-end="url(#ah)"/>
+          <line class="d-line" x1="580" y1="194" x2="603" y2="194" marker-end="url(#ah)"/>
+          <line class="d-line" x1="649" y1="92"  x2="672" y2="118" marker-end="url(#ah)"/>
+          <line class="d-line" x1="649" y1="190" x2="672" y2="162" marker-end="url(#ah)"/>
+          <text class="d-tok" x="545" y="248" text-anchor="middle">stored: A1, then A2</text>
+          <text class="d-ts" x="545" y="268" text-anchor="middle">one device always lands on one worker</text>
+        </svg>
+      </div>
+      <figcaption><b>Fig 1.4</b>Left: a shared queue lets a slow write and a fast write swap one device's readings. Right: routing by device ID keeps each device on one worker, so its readings stay in order while different devices still run in parallel.</figcaption>
+    </figure>
+
+    <div class="callout decision">
+      <h3><span class="chip chip-warn">your decision</span> How many workers, and does order matter?</h3>
+      <p>Four defensible answers. Pick one and record why in the Decision Record before you write the first test.</p>
+      <div class="tablewrap" style="background: var(--paper);">
+        <table>
+          <thead><tr><th>Option</th><th>Gains</th><th>Costs</th></tr></thead>
+          <tbody>
+            <tr><td>One worker</td><td>Order kept with no extra design. Simplest shutdown.</td><td>One store write at a time. Fine for a map; a real ceiling once the store is a network call.</td></tr>
+            <tr><td>N workers, one shared queue</td><td>Best use of workers; nobody sits idle while there's work.</td><td>One device's readings can be stored out of order (Fig 1.4, left).</td></tr>
+            <tr><td>N workers, one queue each, chosen by device</td><td>Order kept per device, parallel across devices.</td><td>A very busy device fills its own queue while others sit empty: a <em>hot partition</em>. Shedding becomes per queue.</td></tr>
+            <tr><td>Don't keep order; sort on read</td><td>Every reading carries a timestamp, so the query can sort.</td><td>Moves the cost to every read, and assumes device clocks are trustworthy.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Questions that settle it: does the Spec, or any client, depend on readings coming back in send order? Does the timestamp already carry the order that matters? What would you say if asked which option survives the store becoming SQS?</p>
+    </div>
+
+    <div class="callout recur">
+      <h3>Where this shows up again</h3>
+      <p>The right-hand side of Fig 1.4 is a Kafka topic. The hash picks a <em>partition</em>, each partition has one consumer in a group, and ordering is guaranteed only within a partition. Whatever you choose here, you'll meet the same choice at M5 with Kafka's names on it.</p>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s6">
+    <h2><span class="sec">&sect;6</span>Ownership and shutdown</h2>
+    <p>
+      A buffer holds readings the client was told are accepted. Restarting the process without
+      draining it loses them, and deploys restart processes far more often than crashes do. So
+      shutdown isn't polish to add later; it's part of the queue.
+    </p>
+
+    <h3>Rules of channel ownership</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Action</th><th>What Go does</th><th>What it means for the design</th></tr></thead>
+        <tbody>
+          <tr><td>Send on a closed channel</td><td>Panics</td><td>Senders (handlers) must never be able to send after close. So senders can't be the ones who close.</td></tr>
+          <tr><td>Close a closed channel</td><td>Panics</td><td>Exactly one owner closes, exactly once.</td></tr>
+          <tr><td>Receive from a closed channel</td><td>Returns remaining items, then the zero value and <code>ok == false</code></td><td>Workers can drain everything left after close.</td></tr>
+          <tr><td><code>range</code> over a channel</td><td>Ends when the channel is closed <em>and</em> empty</td><td>A worker loop written this way drains by itself.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The owner is whoever starts the queue. In this repo that points at <code>main</code>, the composition root, which already builds everything else.</p>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 720 250" role="img" aria-label="Shutdown timeline. On SIGTERM the HTTP server stops accepting and finishes in-flight requests. Only then is the queue closed. Workers keep running until the queue is drained, then exit, then the process exits. Closing the queue any earlier lets a late handler send on a closed channel and panic.">
+          <text class="d-tb" x="20" y="68">HTTP server</text>
+          <text class="d-tb" x="20" y="128">queue</text>
+          <text class="d-tb" x="20" y="188">workers</text>
+
+          <rect class="d-ok"   x="120" y="50" width="180" height="28" rx="4"/><text class="d-t" x="210" y="69" text-anchor="middle">accepting</text>
+          <rect class="d-warn" x="300" y="50" width="100" height="28" rx="4"/><text class="d-t" x="350" y="69" text-anchor="middle">in-flight</text>
+          <text class="d-ts" x="410" y="69">stopped</text>
+
+          <rect class="d-fill" x="120" y="110" width="280" height="28" rx="4"/><text class="d-t" x="260" y="129" text-anchor="middle">open</text>
+          <rect class="d-warn" x="400" y="110" width="160" height="28" rx="4"/><text class="d-t" x="480" y="129" text-anchor="middle">closed, draining</text>
+
+          <rect class="d-ok" x="120" y="170" width="440" height="28" rx="4"/><text class="d-t" x="340" y="189" text-anchor="middle">taking and writing</text>
+
+          <line class="d-dash" x1="300" y1="40" x2="300" y2="212"/>
+          <line class="d-dash" x1="400" y1="40" x2="400" y2="212"/>
+          <line class="d-dash" x1="560" y1="40" x2="560" y2="212"/>
+          <line class="d-dash" x1="640" y1="40" x2="640" y2="212"/>
+          <line class="d-line" x1="120" y1="212" x2="700" y2="212" marker-end="url(#ah)"/>
+          <text class="d-tm" x="300" y="230" text-anchor="middle">SIGTERM</text>
+          <text class="d-tm" x="400" y="230" text-anchor="middle">close</text>
+          <text class="d-tm" x="560" y="230" text-anchor="middle">drained</text>
+          <text class="d-tm" x="640" y="230" text-anchor="middle">exit</text>
+          <text class="d-ts" x="700" y="246" text-anchor="end">time</text>
+
+          <text class="d-tbad" x="395" y="156" text-anchor="end">close any earlier and a late send panics</text>
+        </svg>
+      </div>
+      <figcaption><b>Fig 1.5</b>The order is the whole design. Stop taking new requests and let in-flight ones finish; then close the queue; then wait for the workers to drain it; then exit.</figcaption>
+    </figure>
+
+    <p class="pseudo-label">Pseudocode, behaviour only</p>
+<pre class="pseudo"><span class="k">on</span> stop signal:
+    stop accepting connections; wait for in-flight requests   <span class="c">// no more senders exist after this</span>
+    close the queue                                            <span class="c">// only the owner, only once</span>
+    wait until every worker has finished draining, or a deadline passes
+    exit
+
+<span class="k">each worker</span>:
+    <span class="k">for</span> every reading taken from the queue, until it is closed and empty:
+        write it to the store
+    report done</pre>
+
+    <h3>Things this needs that the repo doesn't have yet</h3>
+    <ul>
+      <li><strong>Signal handling.</strong> <code>main</code> doesn't listen for <code>SIGTERM</code> today. The standard library has a helper that turns a signal into a cancelled <code>context</code>; it's covered alongside Context in <em>Learn Go with Tests</em>.</li>
+      <li><strong>A server you can stop.</strong> gin's <code>Run</code> starts a server you can't shut down cleanly. A plain <code>net/http</code> <code>Server</code> with the gin engine as its handler has a <code>Shutdown</code> method that does the first step of Fig 1.5.</li>
+      <li><strong>A deadline.</strong> Kubernetes waits 30 seconds by default after <code>SIGTERM</code> before it kills the pod. A drain that takes longer is cut off, and whatever is left is lost. Choosing the deadline is choosing your loss window.</li>
+    </ul>
+
+    <div class="callout loss">
+      <h3>What this still doesn't protect against</h3>
+      <p>A crash, an out-of-memory kill, or <code>SIGKILL</code> loses everything in the queue. That's the at-most-once trade you accepted on purpose. Be ready to say it first in an audit, and to name the fix: M4's transactional outbox makes the write durable before the <code>202</code>.</p>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s7">
+    <h2><span class="sec">&sect;7</span>What capacity buys</h2>
+    <p>
+      A buffer buys <em>time</em>, not throughput. If readings arrive faster than workers can write
+      them for long enough, any finite queue fills. Capacity only sets how long a burst can last
+      before you start shedding.
+    </p>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 720 250" role="img" aria-label="Queue depth over two seconds. Depth is zero until a burst starts at 0.5 seconds, rises to the 10,000 capacity by 1 second, stays full and sheds until the burst ends at 1.5 seconds, then drains to zero by 1.75 seconds.">
+          <line class="d-grid" x1="60" y1="40"  x2="680" y2="40"/>
+          <line class="d-grid" x1="60" y1="120" x2="680" y2="120"/>
+          <rect class="d-band" x="370" y="40" width="155" height="160"/>
+          <line class="d-line" x1="60" y1="200" x2="680" y2="200"/>
+          <line class="d-line" x1="60" y1="40"  x2="60"  y2="200"/>
+
+          <text class="d-ts" x="52" y="204" text-anchor="end">0</text>
+          <text class="d-ts" x="52" y="124" text-anchor="end">5k</text>
+          <text class="d-ts" x="52" y="44"  text-anchor="end">10k</text>
+          <text class="d-ts" x="60"  y="218" text-anchor="middle">0s</text>
+          <text class="d-ts" x="215" y="218" text-anchor="middle">0.5s</text>
+          <text class="d-ts" x="370" y="218" text-anchor="middle">1s</text>
+          <text class="d-ts" x="525" y="218" text-anchor="middle">1.5s</text>
+          <text class="d-ts" x="680" y="218" text-anchor="middle">2s</text>
+          <text class="d-ts" x="370" y="242" text-anchor="middle">time</text>
+
+          <line class="d-dash" x1="215" y1="28" x2="525" y2="28"/>
+          <text class="d-ts" x="370" y="22" text-anchor="middle">burst: 120k/s arriving, 100k/s written</text>
+
+          <polyline class="d-acc" style="stroke-width:2.5" points="60,200 215,200 370,40 525,40 602.5,200 680,200"/>
+          <circle cx="370" cy="40" r="4" style="fill: var(--accent)"/>
+
+          <text class="d-ts" x="300" y="164">fills at +20k/s</text>
+          <text class="d-twarn" x="447" y="126" text-anchor="middle">full: shedding</text>
+          <text class="d-ts" x="610" y="104">drains at 40k/s</text>
+          <text class="d-ts" x="68" y="34">capacity</text>
+        </svg>
+      </div>
+      <figcaption><b>Fig 1.6</b>Illustrative numbers. A 10,000-slot queue absorbs the first half second of a 20k/s overload, then sheds for the rest of the burst. Doubling capacity would delay shedding by another half second; it wouldn't prevent it.</figcaption>
+    </figure>
+
+    <h3>Little's Law</h3>
+    <p>
+      <strong>L = &lambda;W</strong>: the average number of items in a system equals the arrival rate
+      times the average time each spends there. At 100,000 readings a second with each waiting 2 ms in
+      the queue, about 200 are queued on average. That gives you a starting point from two numbers you
+      can measure, and it's why capacity is a phase 3 decision. You'll have the measurements then.
+    </p>
+    <p>
+      Watch the opposite failure too. An unbounded queue never sheds, so the same burst becomes growing
+      memory and growing wait times, and ends in an out-of-memory kill that loses <em>everything</em>
+      queued. A bound turns that slow failure into a fast, visible one.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s8">
+    <h2><span class="sec">&sect;8</span>Where this shows up again</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Milestone</th><th>The same decision, bigger</th></tr></thead>
+        <tbody>
+          <tr><td>M3 &middot; SQS</td><td>SQS replaces the store behind the workers. Writes can now fail, so retries with jittered backoff and a dead-letter path arrive. Batching (up to 10 messages per call) is why the buffer stays.</td></tr>
+          <tr><td>M4 &middot; Outbox</td><td>The outbox is a durable queue in Postgres, drained by polling workers. It closes the crash-loss window from &sect;6.</td></tr>
+          <tr><td>M5 &middot; Kafka</td><td>Partitions are Fig 1.4's right side. Consumer lag is queue depth. Pausing a partition is backpressure.</td></tr>
+          <tr><td>M6 &middot; Redis</td><td>Per-client and global rate limits: the <code>429</code> that &sect;4 set aside.</td></tr>
+          <tr><td>M7 &middot; Observability</td><td>Queue depth, shed count, and drain time are the metrics that turn &ldquo;acceptable loss&rdquo; into a number.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>How it gets asked</h3>
+    <ul>
+      <li>&ldquo;What happens when your consumer is slower than your producer?&rdquo; That's the backpressure question; the answer is &sect;4 and &sect;7.</li>
+      <li>&ldquo;Your service returned 202. What can still be lost?&rdquo; That's &sect;6.</li>
+      <li>&ldquo;How did you size the buffer?&rdquo; Little's Law, from measurements, not a round number.</li>
+      <li>&ldquo;Who closes the channel?&rdquo; The single owner, after every sender is gone.</li>
+    </ul>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s9">
+    <h2><span class="sec">&sect;9</span>Assignment</h2>
+    <p>
+      Build the queue and its shutdown in <code>internal/engine</code>, test-first. The list below is
+      behaviours, not steps. Each one should start as a failing test you wrote, for the right reason.
+      You choose the order, the names, the types, and the package's public surface. Tick items off as
+      you go; ticks are saved in this browser only.
+    </p>
+
+    <div class="callout decision">
+      <h3>Before the first test</h3>
+      <ul>
+        <li>Make the &sect;5 decision and record it in the Decision Record.</li>
+        <li>Decide where the queue sits: between <code>telemetry.Service</code> and <code>data.Storer</code>, or somewhere else. GOOS ch. 7 has the vocabulary for that conversation.</li>
+        <li>Decide how a test will make the queue full on purpose. A map write never blocks, so the workers will always keep up. What would make them slow on demand?</li>
+      </ul>
+    </div>
+
+    <p class="group-label">Engine (unit level)</p>
+    <ul class="checks">
+      <li><input type="checkbox" id="e1"><label for="e1"><span class="what">A reading offered while there's room is accepted and eventually reaches the store.</span><span class="how">The basic path. Your Spec's polling helper shows the shape of &ldquo;eventually&rdquo;.</span><span class="lvl">engine</span></label></li>
+      <li><input type="checkbox" id="e2"><label for="e2"><span class="what">When the queue is full, an offer returns a &ldquo;full&rdquo; error immediately.</span><span class="how">Two assertions: the error is the right kind, and the call didn't wait.</span><span class="lvl">engine</span></label></li>
+      <li><input type="checkbox" id="e3"><label for="e3"><span class="what">Everything accepted before shutdown is in the store when shutdown returns.</span><span class="how">Offer <em>K</em>, stop, count <em>K</em>. No polling needed after stop, and that's the point.</span><span class="lvl">engine</span></label></li>
+      <li><input type="checkbox" id="e4"><label for="e4"><span class="what">An offer after shutdown has started is refused, and nothing panics.</span><span class="how">The send-on-closed-channel case from &sect;6, as a test.</span><span class="lvl">engine</span></label></li>
+      <li><input type="checkbox" id="e5"><label for="e5"><span class="what">No goroutines are left running after shutdown.</span><span class="how">How would you detect a leaked worker? There's a well-known Uber library for exactly this; decide whether it earns a dependency.</span><span class="lvl">engine</span></label></li>
+      <li><input type="checkbox" id="e6"><label for="e6"><span class="what">Many concurrent offerers, clean under <code>--race</code>.</span><span class="how"><code>mise run test telemetry-svc --race</code>. Remember what <code>-race</code> can't prove.</span><span class="lvl">engine</span></label></li>
+      <li><input type="checkbox" id="e7"><label for="e7"><span class="what">Ordering, per your &sect;5 decision.</span><span class="how">If order is kept per device, prove it with readings that would visibly swap. If it isn't, write down why no test is needed.</span><span class="lvl">engine</span></label></li>
+    </ul>
+
+    <p class="group-label">Transport</p>
+    <ul class="checks">
+      <li><input type="checkbox" id="h1"><label for="h1"><span class="what">A full queue becomes <code>503</code> with a <code>Retry-After</code> header.</span><span class="how">A handler test, next to the existing status-code translation cases.</span><span class="lvl">api</span></label></li>
+      <li><input type="checkbox" id="h2"><label for="h2"><span class="what">Invalid telemetry still gets <code>400</code> and never takes up a slot.</span><span class="how">Validation runs before the offer (Fig 1.3).</span><span class="lvl">api / domain</span></label></li>
+      <li><input type="checkbox" id="h3"><label for="h3"><span class="what">The driver can tell a retryable refusal from a caller error without reading the message.</span><span class="how">The error-classification debt. Decide what the driver gets to look at.</span><span class="lvl">driver</span></label></li>
+    </ul>
+
+    <p class="group-label">Process and Spec</p>
+    <ul class="checks">
+      <li><input type="checkbox" id="m1"><label for="m1"><span class="what"><code>SIGTERM</code> drains the queue, then the process exits cleanly.</span><span class="how">Fig 1.5 in <code>main</code>. Stopping the acceptance container already sends it a signal; is that a test you want?</span><span class="lvl">main</span></label></li>
+      <li><input type="checkbox" id="m2"><label for="m2"><span class="what"><code>TelemetrySpec</code> stays green at both levels with no changes.</span><span class="how">You already weakened the promise in <code>4a00682</code>. If the Spec needs editing now, the ring changed behaviour it shouldn't have.</span><span class="lvl">spec</span></label></li>
+    </ul>
+
+    <div class="callout read">
+      <h3>Out of scope on purpose</h3>
+      <ul>
+        <li><strong>Retries and a dead-letter path.</strong> A map write can't fail, so there's nothing to retry and nothing to test. They arrive at M3.</li>
+        <li><strong>Choosing capacity, benchmarks, allocation work.</strong> Phase 3, after <code>--bench --memprofile</code>.</li>
+        <li><strong>Raising the complexity lint limits.</strong> Measure the engine once it exists, then set them.</li>
+      </ul>
+    </div>
+
+    <p>
+      <strong>Done when</strong> every box is ticked, the full <code>mise run test</code> (container
+      suite included) and <code>--race</code> are green, lint is clean, and you can answer the four
+      questions in &sect;8 out loud without notes.
+    </p>
+  </section>
+
+</article>
+</div>

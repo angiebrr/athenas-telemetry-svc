@@ -4,6 +4,8 @@ Living state for `athenas-telemetry-svc`. **Claude maintains this file** — see
 
 Published tracker: `.claude/skills/self-study-mentor/tracker.html` → https://claude.ai/artifact/4DEea8wrLBwpdkRu9mV1Qk (republish to this URL; don't create a new one).
 
+Study notes: `.claude/skills/self-study-mentor/notes/` (shell `index.html` + one fragment per chapter under `chapters/`, fetched by hash route) → https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake. Republish to this URL with `files` for each chapter. Kept out of `docs/` on purpose: the repo is recruiter-facing, and Claude-written chapters there would blur what she built vs. what was explained. Chapters explain behaviour, diagrams, and trade-offs, and end in a behaviour-list assignment; no implementation code, pseudocode only at a high level (her ask, 2026-10-21).
+
 ---
 
 ## Current Position
@@ -58,7 +60,7 @@ Mirrors CLAUDE.md's Known Debt; kept here with dates and triggers.
 
 - **Spec matches on error prose, not error class.** `ErrorContains(err, "missing device ID")` couples the container acceptance suite to sentinel wording. Durable fix is error classification carried by `httpserver.Driver`. Open since 2026-08-26. The domain unit tests moved to `ErrorIs` on the sentinels on 2026-09-26 (`863e66b`), so this now affects only the Spec and container suite.
 - **Device IDs only checked for emptiness.** No format/length/charset rules. TODOs in `api_handler.go` and `api_handler_test.go`.
-- **`Ingest`'s success promise: decided 2026-10-09, Spec not yet updated.** Fire-and-forget (accepted into memory, eventually queryable, at-most-once). Remaining work is hers: rewrite the `TelemetryIngester` doc/TODO in `telemetry_spec.go` and make the ingest-then-query cases poll. Closes when that lands.
+- ~~**`Ingest`'s success promise.**~~ **Resolved 2026-10-21 (`4a00682`).** The port doc now describes queue-and-retry semantics and the ingest case polls via `EventuallyWithT`. Gap noted at review, left to her: the doc still doesn't state the positive promise ("will become queryable") or that a nil return can be lost on a crash (at-most-once).
 - **Complexity linting off.** Whole codebase measures ≤6 on cyclomatic/cognitive/function-length, so no conventional threshold could fire. Revisit when the ring lands; set the limit from measurement.
 
 ---
@@ -140,6 +142,7 @@ Current, tied to the decision in front of her. Short — one at a time.
 | 2026-09-21 | [LMAX Disruptor paper](https://lmax-exchange.github.io/disruptor/disruptor.html) | M2 phase 2. A lock-free ring buffer built around cache-line padding, false sharing, and the single-writer principle — her particle-system optimization background applied directly to a queue. Gives her a production system to name. | Assigned |
 | 2026-09-21 | *Learn Go with Tests* — Concurrency, Select, Sync, Context | M2 phase 2, Go idiom | Assigned |
 | 2026-09-21 | Google SRE ch. 21, "Handling Overload" | M2 phase 2, load-shedding vocabulary | Assigned |
+| 2026-10-21 | Study Notes ch. 1, "Bounded Queues and Worker Pools" (+ its assignment) | M2 phase 2. Synthesis of the three readings above with this repo's decisions; the assignment is the phase 2 build as a behaviour checklist. | Assigned |
 
 ---
 

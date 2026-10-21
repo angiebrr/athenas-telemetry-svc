@@ -117,7 +117,6 @@ Don't "fix" these unprompted — several are milestone work she plans to do hers
 
 - **The Spec matches on error prose, not error class.** `TelemetrySpec` asserts with `ErrorContains(err, "missing device ID")` / `"data not found"`, so rewording a sentinel in `internal/telemetry` breaks the container acceptance suite. The durable fix is error classification carried by `httpserver.Driver`, letting the Spec distinguish caller-fault from callee-fault across any transport without depending on the message text. Still open.
 - **Device IDs are only checked for emptiness.** `telemetry.Query` rejects `""` and nothing else; no format, length, or charset rules. Tracked by TODOs in `api_handler.go` and `api_handler_test.go`.
-- **`Ingest`'s success promise: decided, Spec not yet updated.** On 2026-10-09 Angie chose fire-and-forget: a nil `Ingest` / `202` means *accepted into the in-memory buffer*, eventually queryable, at-most-once (lost on crash). The TODO in `telemetry_spec.go` stays until she rewrites the port doc and makes the ingest-then-query cases poll.
 - **Complexity linting is off.** `cyclomatic`, `cognitive-complexity`, and `function-length` are disabled in `.golangci.yml` because the whole codebase currently measures ≤6 on all three, so any conventional threshold could not fire. Revisit when the dispatch ring lands and set the limit from measurement, not folklore.
 
 ## CI
