@@ -22,10 +22,11 @@ import (
 //
 // An error will be returned if invalid telemetry is given or if the data can't be queued and
 // should be retried, and nil will be returned if it was able to ingest the data and queue it for
-// processing.
+// processing so it will become queryable.
 //
-// NOTE: Since we're queueing it for processing, this means that querying the data immediately
-// after ingestion may not return the data.
+// NOTE: Since we're queueing it for processing, a nil return means that querying the data
+// immediately after ingestion may not return the data AND that the data could potentially be lost,
+// but in most cases it should be queryable after it's processed async.
 type TelemetryIngester interface {
 	Ingest(telemetry models.Telemetry) error
 }
