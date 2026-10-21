@@ -458,11 +458,11 @@
       </div>
       <div class="stat">
         <dt>Branch</dt>
-        <dd class="mono">main &middot; PR #5 merged</dd>
+        <dd class="mono">abreuer-M2-dispatch-ring</dd>
       </div>
       <div class="stat">
         <dt>Last verified</dt>
-        <dd class="mono">2026-09-28 &middot; all green + race &middot; lint 0</dd>
+        <dd class="mono">2026-10-09 &middot; unit + race &middot; lint 0 &middot; container not rerun</dd>
       </div>
     </dl>
   </header>
@@ -504,7 +504,7 @@
             and draining.
           </p>
           <div class="phase-evidence">
-            <span>decided 2026-10-09: <code>202</code> = fire-and-forget &middot; next: full-queue policy</span>
+            <span>decided: <code>202</code> = fire-and-forget &middot; full queue = shed <code>503</code> &middot; next: workers vs. ordering</span>
           </div>
         </div>
       </article>
@@ -541,8 +541,8 @@
         </li>
         <li>
           <span class="idx">02</span>
-          <span class="what">Decide the full-queue policy
-            <span class="why"><code>202</code> settled as fire-and-forget. Next: block, shed with <code>503</code>, or drop &mdash; and worker count vs. per-device ordering.</span>
+          <span class="what">Decide worker count vs. per-device ordering
+            <span class="why"><code>202</code> = fire-and-forget and a full queue = shed with <code>503</code> are settled. N workers can reorder one device's readings; one worker can't.</span>
           </span>
         </li>
         <li>
@@ -681,6 +681,8 @@
           <span class="tag">batching &middot; failure isolation &middot; durability of the 202</span></span></li>
         <li><span class="q">You chose fire-and-forget over group commit. What did you trade, what would make you switch, and how would you know your loss rate?
           <span class="tag">at-most-once &middot; end-to-end argument</span></span></li>
+        <li><span class="q">Queue full returns <code>503</code>, not <code>429</code>. Why, and how did you test that you shed?
+          <span class="tag">load shedding &middot; overload vs. rate limit</span></span></li>
         <li><span class="q">Your framework only offers a global mode switch. Where did you call it, and what does that choice hide?
           <span class="tag">global state &middot; composition root</span></span></li>
       </ol>

@@ -7,6 +7,7 @@ package specifications
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,12 +20,12 @@ import (
 
 // TelemetryIngester is a port driven by the TelemetrySpec that collects telemetry data.
 //
-// An error will be returned if invalid telemetry is given, and nil will be returned if it was able
-// to ingest the data.
+// An error will be returned if invalid telemetry is given or if the data can't be queued and
+// should be retried, and nil will be returned if it was able to ingest the data and queue it for
+// processing.
 //
-// TODO: It's a little vague if "able to ingest" means if it can be queried immediately after or
-// not, but this will be firmed up after future work which uses ring buffers to process lots
-// of data at once.
+// NOTE: Since we're queueing it for processing, this means that querying the data immediately
+// after ingestion may not return the data.
 type TelemetryIngester interface {
 	Ingest(telemetry models.Telemetry) error
 }
@@ -46,16 +47,14 @@ type TelemetryQuerier interface {
 // It is used in a variety of ways to validate this contract, like running acceptance tests against
 // the service or running internal unit tests against the internal domain logic.
 func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier TelemetryQuerier) {
-	testCtx.Run("valid telemetry is successfully ingested", func(subTestCtx *testing.T) {
+	testCtx.Run("valid telemetry is successfully ingested and eventually stored", func(subTestCtx *testing.T) {
 		fakeData := shared.ValidTelemetry()
 
 		err := ingester.Ingest(fakeData)
 		assert.NoError(subTestCtx, err)
 
-		results, err := querier.Query(fakeData.DeviceID)
-		assert.NoError(subTestCtx, err)
-		require.Equal(subTestCtx, 1, len(results))
-		assert.Equal(subTestCtx, fakeData.DeviceID, results[0].DeviceID)
+		expectedResultsLen := 1
+		queryUntilExpectedLen(subTestCtx, fakeData.DeviceID, querier, expectedResultsLen)
 	})
 
 	testCtx.Run("invalid telemetry is rejected on ingest", func(subTestCtx *testing.T) {
@@ -72,4 +71,25 @@ func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier Telem
 		assert.ErrorContains(subTestCtx, err, "data not found")
 		assert.Equal(subTestCtx, 0, len(results))
 	})
+}
+
+// queryUntilExpectedLen is a helper func that calls querier.Query() every 10ms for 5s until the
+// querier returns the expected number of results with the target device ID.
+func queryUntilExpectedLen(
+	testCtx *testing.T,
+	targetDeviceID string,
+	querier TelemetryQuerier,
+	expectedResultsLen int,
+) {
+	testCtx.Helper()
+	queryWaitFor := time.Second * 5
+	queryTick := time.Millisecond * 10
+
+	assert.EventuallyWithT(testCtx, func(collectCtx *assert.CollectT) {
+		queryResults, queryErr := querier.Query(targetDeviceID)
+
+		require.NoError(collectCtx, queryErr)
+		require.Equal(collectCtx, expectedResultsLen, len(queryResults))
+		assert.Equal(collectCtx, targetDeviceID, queryResults[0].DeviceID)
+	}, queryWaitFor, queryTick)
 }
