@@ -65,6 +65,20 @@ Mirrors CLAUDE.md's Known Debt; kept here with dates and triggers.
 
 ---
 
+## Planned: Observability Stack (Prometheus + Loki + Grafana)
+
+Proposed 2026-10-21, Angie's idea (Grafana interview 2026-10-22). **Placement is hers to confirm**; the suggested split below keeps it from jumping ahead of the ring. These are TODOs, not code: she writes the compose file, config, and instrumentation herself, and any TODO comments inside `internal/` are hers to add.
+
+**Suggested placement.** Instrumentation is *measurement*, so it belongs with M2 phase 3: the benchmark gate and "acceptable loss" both need numbers. Queue metrics need the queue, so they land after the ring. The compose stack is dev tooling and can land any time after the ring, without blocking anything. M7 still owns DORA metrics and dashboards-as-code in CI.
+
+- [ ] **HTTP RED metrics via middleware.** Candidates from the gin docs (<https://gin-gonic.com/en/docs/server-config/metrics/>): `github.com/gin-contrib/openmetrics`, or hand-rolled `prometheus/client_golang` counters and histograms. Label by `c.FullPath()` (the route template), never the raw URL. `/v1/telemetry/:device_id` with real IDs would mean one series per device. Decide what the label is for unmatched routes (`FullPath()` is empty there).
+- [ ] **Queue metrics from the engine.** Depth (gauge), accepted / shed counts (counters), drain duration at shutdown. These turn the at-most-once trade into a measured loss rate (Study Notes ch. 1 §7–§8).
+- [ ] **`/metrics` on its own port.** The gin docs suggest 9090, which is also the Prometheus server's default port; in a compose file they'll collide. Pick another port (2112 is a common convention) and keep it off the public listener.
+- [ ] **Structured logs.** Handlers use package-level `slog.Warn` with the default handler, and gin's own access log is unstructured. Decide between `slog`'s text handler (logfmt-shaped, which Loki's `| logfmt` parser reads) and the JSON handler, and whether gin's logger is replaced by an `slog` request logger. Decide in `main`, the composition root.
+- [ ] **`docker-compose` stack:** service + Prometheus (scrapes `/metrics`) + Loki + a log shipper + Grafana with provisioned data sources. **Use Grafana Alloy as the shipper, not Promtail**: Promtail is deprecated and past end-of-life. Keep `device_id` out of Loki *labels* (stream cardinality); leave it in the log line and filter at query time.
+- [ ] **One provisioned dashboard**, committed as JSON: request rate / error rate / latency (RED) plus queue depth and shed rate (saturation, from USE).
+- [ ] **Test level.** Metrics are operational surface, not product behaviour, so they stay out of `TelemetrySpec`. An adapter-level test that a request increments the expected series is enough.
+
 ## Interview Question Bank
 
 **This is the project's actual exit criterion.** The repo is the evidence; answering these fluently is the qualification. Each milestone adds questions. A good answer names the trade, the failure mode it doesn't protect against, and where you'd measure — not a definition.
@@ -122,6 +136,15 @@ Not milestone-scoped; these recur at every milestone and the answers get richer 
 - Where does "prod means release mode" live, and why there rather than in the HTTP layer?
 - A timestamp of `0` is now rejected. Why is Go's zero value a validation problem at a JSON boundary? What other options were there (pointer fields, `omitempty`, a presence check), and what do you lose by treating zero as "missing"?
 - Your library only offers a global setting (gin's mode). Where did you put the call that changes it, and what did that choice hide or expose? What does gin's release mode actually change?
+
+### Observability — seeded 2026-10-21 (Grafana interview)
+
+- Why must `device_id` never be a Prometheus label? What exactly grows, and what does it cost? Where *can* it live instead?
+- Loki indexes labels but not log content. What does that buy compared with a full-text index, and how does it change which labels you choose?
+- RED vs. USE: which applies to your HTTP handlers, and which to your queue? What's the saturation signal for the ring?
+- Histogram or summary for request latency? Why can't you average p99s across pods?
+- Your queue sheds with `503`. Which metric and alert tells you that's happening, and at what rate should someone be woken up?
+- Why serve `/metrics` on a separate port?
 
 ### M3–M7 — seeded as each milestone opens
 
