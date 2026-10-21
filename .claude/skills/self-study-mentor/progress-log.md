@@ -60,7 +60,7 @@ Mirrors CLAUDE.md's Known Debt; kept here with dates and triggers.
 
 - **Spec matches on error prose, not error class.** `ErrorContains(err, "missing device ID")` couples the container acceptance suite to sentinel wording. Durable fix is error classification carried by `httpserver.Driver`. Open since 2026-08-26. The domain unit tests moved to `ErrorIs` on the sentinels on 2026-09-26 (`863e66b`), so this now affects only the Spec and container suite.
 - **Device IDs only checked for emptiness.** No format/length/charset rules. TODOs in `api_handler.go` and `api_handler_test.go`.
-- ~~**`Ingest`'s success promise.**~~ **Resolved 2026-10-21 (`4a00682`).** The port doc now describes queue-and-retry semantics and the ingest case polls via `EventuallyWithT`. Gap noted at review, left to her: the doc still doesn't state the positive promise ("will become queryable") or that a nil return can be lost on a crash (at-most-once).
+- ~~**`Ingest`'s success promise.**~~ **Resolved 2026-10-21 (`4a00682`).** The port doc now describes queue-and-retry semantics and the ingest case polls via `EventuallyWithT`. Both review gaps (the positive "will become queryable" promise, and that a nil return can still be lost) closed by her in `13f970a`.
 - **Complexity linting off.** Whole codebase measures ≤6 on cyclomatic/cognitive/function-length, so no conventional threshold could fire. Revisit when the ring lands; set the limit from measurement.
 
 ---
