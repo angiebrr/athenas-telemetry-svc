@@ -5,8 +5,8 @@
 ###################################################################################################
 
 [tools]
-go = "1.26.7"
-golangci-lint = "2.12.2"
+go = "1.27.3"
+golangci-lint = "2.15.0"
 
 [vars]
 # Every go project in the repo, in the order tasks should walk them. Task scripts prefix these with
