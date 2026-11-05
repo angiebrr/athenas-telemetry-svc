@@ -69,9 +69,9 @@ func StorerContract(testCtx *testing.T, store data.Storer) {
 
 	testCtx.Run("insert multiple data entries for the same device ID", func(subTestCtx *testing.T) {
 		// Create multiple sample telemetry data entries for the same device ID
-		sampleData1 := shared.ValidTelemetry()
-		sampleData2 := shared.ValidTelemetry()
-		sampleData2.DeviceID = sampleData1.DeviceID
+		sampleData, deviceID := shared.ValidTelemetryN(2)
+		sampleData1 := sampleData[0]
+		sampleData2 := sampleData[1]
 
 		// Insert both sample data entries into the store
 		err := store.Insert(sampleData1, sampleData2)
@@ -83,8 +83,8 @@ func StorerContract(testCtx *testing.T, store data.Storer) {
 
 		// Verify that both entries are retrieved
 		require.Len(subTestCtx, retrievedData, 2)
-		assert.Equal(subTestCtx, sampleData1.DeviceID, retrievedData[0].DeviceID)
-		assert.Equal(subTestCtx, sampleData2.DeviceID, retrievedData[1].DeviceID)
+		assert.Equal(subTestCtx, deviceID, retrievedData[0].DeviceID)
+		assert.Equal(subTestCtx, deviceID, retrievedData[1].DeviceID)
 	})
 
 	testCtx.Run("make multiple inserts concurrently", func(subTestCtx *testing.T) {
@@ -122,17 +122,15 @@ func StorerContract(testCtx *testing.T, store data.Storer) {
 
 	testCtx.Run("result slice isn't leaked", func(subTestCtx *testing.T) {
 		// make 3 pieces of telemetry with the same device ID
-		sampleResults := shared.ValidTelemetryN(3)
+		sampleResults, deviceID := shared.ValidTelemetryN(3)
 		sampleData1 := sampleResults[0]
 		sampleData2 := sampleResults[1]
 		sampleData3 := sampleResults[2]
-		sampleData2.DeviceID = sampleData1.DeviceID
-		sampleData3.DeviceID = sampleData1.DeviceID
 
 		// Insert the sample data and try to get it
 		err := store.Insert(sampleData1, sampleData2, sampleData3)
 		require.NoError(subTestCtx, err)
-		results, err := store.GetByDeviceID(sampleData1.DeviceID)
+		results, err := store.GetByDeviceID(deviceID)
 		require.NoError(subTestCtx, err)
 		require.Len(subTestCtx, results, 3, "device should have 3 pieces of telemetry")
 
@@ -145,7 +143,7 @@ func StorerContract(testCtx *testing.T, store data.Storer) {
 
 		// Get the results again, and verify none of the data points have a mutated deviced ID
 		// or metric name
-		results, err = store.GetByDeviceID(sampleData1.DeviceID)
+		results, err = store.GetByDeviceID(deviceID)
 		require.NoError(subTestCtx, err)
 		require.Len(subTestCtx, results, 3, "device should have 3 pieces of telemetry")
 		for _, currData := range results {

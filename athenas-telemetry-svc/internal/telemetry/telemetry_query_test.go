@@ -33,8 +33,7 @@ func TestQueryDeviceIDs(testCtx *testing.T) {
 			Name:     "valid device ID",
 			DeviceID: "device-123",
 			SetupFn: func(dataStore data.Storer) error {
-				validData := shared.ValidTelemetry()
-				validData.DeviceID = "device-123"
+				validData := shared.ValidTelemetryWithDeviceID("device-123")
 				return dataStore.Insert(validData)
 			},
 			ExpectedError: "",

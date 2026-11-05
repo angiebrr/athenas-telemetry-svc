@@ -59,8 +59,7 @@ func TelemetrySpec(testCtx *testing.T, ingester TelemetryIngester, querier Telem
 	})
 
 	testCtx.Run("invalid telemetry is rejected on ingest", func(subTestCtx *testing.T) {
-		fakeData := shared.ValidTelemetry()
-		fakeData.DeviceID = "" // invalid telemetry: no device ID
+		fakeData := shared.ValidTelemetryWithDeviceID("") // invalid telemetry: no device ID
 
 		err := ingester.Ingest(fakeData)
 		assert.ErrorContains(subTestCtx, err, "missing device ID")
