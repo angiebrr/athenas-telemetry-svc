@@ -444,17 +444,18 @@
     <h1>Athena Study Tracker</h1>
     <p class="lede">
       Where the build stands, what the reading says, and the one thing to pick up next.
-      Milestone 2 was deliberately resequenced: destination first, concurrency second, optimization last.
+      For three weeks a time-boxed <strong>Video track</strong> comes first (real-time streaming, codecs, transport),
+      then Milestone 2 resumes where it paused.
     </p>
 
     <dl class="statbar">
       <div class="stat">
-        <dt>Milestone</dt>
-        <dd>M2 &middot; In-Memory Concurrency</dd>
+        <dt>Active track</dt>
+        <dd>Video &middot; wk 1 of 3 &middot; to Nov 25</dd>
       </div>
       <div class="stat">
-        <dt>Phase</dt>
-        <dd>1 of 3 complete</dd>
+        <dt>Milestone</dt>
+        <dd>M2 &middot; paused at phase 2</dd>
       </div>
       <div class="stat">
         <dt>Branch</dt>
@@ -462,13 +463,77 @@
       </div>
       <div class="stat">
         <dt>Last verified</dt>
-        <dd class="mono">2026-10-09 &middot; unit + race &middot; lint 0 &middot; container not rerun</dd>
+        <dd class="mono">2026-11-05 &middot; unit + race &check; &middot; container not rerun since 10-09</dd>
       </div>
     </dl>
   </header>
 
   <section>
-    <h2>Milestone 2, in three phases</h2>
+    <h2>Video track &mdash; side track, ~10 hrs/week</h2>
+    <div class="phases">
+
+      <article class="card phase" data-state="active">
+        <div class="phase-num">W1</div>
+        <div>
+          <div class="phase-head">
+            <h3>Pixels to packets &middot; Nov 5&ndash;11</h3>
+            <span class="chip chip-active">Now</span>
+          </div>
+          <p class="phase-body">
+            <a href="https://howvideo.works/" target="_blank" rel="noopener">HowVideo.works</a> &rarr;
+            <a href="https://github.com/leandromoreira/digital_video_introduction" target="_blank" rel="noopener">Digital Video Introduction</a>
+            (through H.264, with the ffmpeg exercises) &rarr;
+            <a href="https://webrtcforthecurious.com/" target="_blank" rel="noopener">WebRTC for the Curious</a> ch.&nbsp;1&ndash;3.
+            Then run Pion's <code>reflect</code> and <code>save-to-disk</code> unchanged, with <code>chrome://webrtc-internals</code> open.
+          </p>
+          <div class="phase-evidence">
+            <span>checkpoint: trace one webcam frame to a viewer via WebRTC <em>and</em> via HLS, naming every protocol</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="card phase" data-state="wait">
+        <div class="phase-num">W2</div>
+        <div>
+          <div class="phase-head">
+            <h3>Real-time transport + the spike &middot; Nov 12&ndash;18</h3>
+            <span class="chip chip-wait">Next</span>
+          </div>
+          <p class="phase-body">
+            WfC ch.&nbsp;5, 6, 9 (congestion control, RTP/RTCP, debugging). Her spike, in a separate repo:
+            browser webcam &rarr; Pion in Go &rarr; file &rarr; ffmpeg &rarr; HLS. The decision it forces is
+            <strong>transcode vs. transmux</strong>: VP8 from the browser, H.264 for HLS.
+          </p>
+          <div class="phase-evidence">
+            <span>checkpoint: 30&nbsp;s recorded by her code plays back as HLS</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="card phase" data-state="wait">
+        <div class="phase-num">W3</div>
+        <div>
+          <div class="phase-head">
+            <h3>Managed services + design &middot; Nov 19&ndash;25</h3>
+            <span class="chip chip-wait">Queued</span>
+          </div>
+          <p class="phase-body">
+            Kinesis Video Streams (fragments, retention, HLS playback, kvssink, WebRTC ingestion) and MistServer
+            (any protocol in, any protocol out). The getStats &rarr; Athenas producer, designed on paper, Spec-first.
+            Then question-bank rehearsal and one system-design mock.
+          </p>
+          <div class="phase-evidence">
+            <span>exit: video question bank answered to the standard</span>
+            <span>interview lands in wk 2? move KVS + Mist ahead of the spike</span>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Milestone 2, in three phases &mdash; paused until Nov 25</h2>
     <div class="phases">
 
       <article class="card phase" data-state="done">
@@ -495,7 +560,7 @@
         <div>
           <div class="phase-head">
             <h3>Make it right &mdash; the dispatch ring</h3>
-            <span class="chip chip-active">Up next</span>
+            <span class="chip chip-wait">Paused</span>
           </div>
           <p class="phase-body">
             Not a fix for data races &mdash; the store's mutex already handles those. The ring exists to make
@@ -504,7 +569,7 @@
             and draining.
           </p>
           <div class="phase-evidence">
-            <span>decided: <code>202</code> = fire-and-forget &middot; full queue = shed <code>503</code> &middot; next: workers vs. ordering</span>
+            <span>decided: <code>202</code> = fire-and-forget &middot; full queue = shed <code>503</code> &middot; Spec polls, but is green against the sync store &middot; next: workers vs. ordering</span>
           </div>
         </div>
       </article>
@@ -535,46 +600,58 @@
       <ol class="queue">
         <li>
           <span class="idx">01</span>
-          <span class="what">Finish GOOS ch. 7 &middot; ch. 8
-            <span class="why">The build is ahead of the theory. M2's block is 6&ndash;8.</span>
+          <span class="what">Read <a href="https://howvideo.works/" target="_blank" rel="noopener">HowVideo.works</a>, end to end
+            <span class="why">Video track week 1. The whole pipeline in one sitting, so codecs and WebRTC have somewhere to hang.</span>
           </span>
         </li>
         <li>
           <span class="idx">02</span>
-          <span class="what">Read <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch01" target="_blank" rel="noopener">Study Notes ch. 1</a>; decide worker count vs. per-device ordering
-            <span class="why"><code>202</code> = fire-and-forget and a full queue = shed with <code>503</code> are settled. N workers can reorder one device's readings; one worker can't.</span>
+          <span class="what">Video track weeks 1&ndash;3 (above)
+            <span class="why">Spike in a separate repo; getStats producer designed, not built. Nothing lands in <code>internal/</code>.</span>
           </span>
         </li>
         <li>
           <span class="idx">03</span>
-          <span class="what">Spec red for the new promise
-            <span class="why">Rewrite the port doc; ingest-then-query cases poll. Outside-in: the Spec changes before <code>internal/engine</code> exists.</span>
+          <span class="what">Re-enter M2: full <code>mise run test</code> incl. container, then lint
+            <span class="why">The container suite hasn't run since 2026-10-09. Prove the baseline before building on it.</span>
           </span>
         </li>
         <li>
           <span class="idx">04</span>
+          <span class="what">Re-read <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch01" target="_blank" rel="noopener">Study Notes ch. 1</a>; decide worker count vs. per-device ordering; resume GOOS ch. 7&ndash;8
+            <span class="why">N workers can reorder one device's readings; one worker can't. RTP's per-SSRC ordering and the jitter buffer are fresh evidence for that call.</span>
+          </span>
+        </li>
+        <li>
+          <span class="idx">05</span>
+          <span class="what">A Spec case that the ring makes pass
+            <span class="why">The Spec now polls, but it is green against the synchronous store, so nothing fails yet without the ring. Outside-in means something should.</span>
+          </span>
+        </li>
+        <li>
+          <span class="idx">06</span>
           <span class="what">Build the dispatch ring + graceful shutdown
             <span class="why">Justify buffered vs. unbuffered, full-queue policy, ordering, and who closes the channel before writing it. <code>main</code> has no shutdown today; a buffer makes that lossy.</span>
           </span>
         </li>
         <li>
-          <span class="idx">05</span>
+          <span class="idx">07</span>
           <span class="what">Error classification in the driver
             <span class="why">Due on the ring's first commit: a full queue is the first callee-fault <code>Ingest</code> can return.</span>
           </span>
         </li>
         <li>
-          <span class="idx">06</span>
+          <span class="idx">08</span>
           <span class="what">PR &rarr; merge the ring</span>
         </li>
         <li>
-          <span class="idx">07</span>
+          <span class="idx">09</span>
           <span class="what">Benchmark, then optimize
-            <span class="why">Phase 3, and M2's actual exit criterion.</span>
+            <span class="why">Phase 3, and M2's actual exit criterion. The getStats producer becomes the realistic workload.</span>
           </span>
         </li>
         <li>
-          <span class="idx">08</span>
+          <span class="idx">10</span>
           <span class="what">Observability stack (proposed)
             <span class="why">RED + queue metrics, structured logs, compose with Prometheus, Loki, Alloy and Grafana. Lands with phase 3 measurement, after the ring. Labels by route template; <code>device_id</code> never a label.</span>
           </span>
@@ -602,6 +679,40 @@
         <div class="track"><div class="fill" style="width: 12%"></div></div>
         <p class="meter-note">&ldquo;What distributed systems achieve for us.&rdquo; Course 1 is the lab for M1 <em>and</em> M2, and gates M3.</p>
       </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Questions the Video track should make you able to answer</h2>
+    <div class="card qbank">
+      <p class="standard">
+        Staff-level video questions are rarely definitions. Expect &ldquo;design it&rdquo; and &ldquo;what breaks.&rdquo;
+        Full list in <code>progress-log.md</code>; these are the ones most likely to come up.
+      </p>
+      <ol>
+        <li><span class="q">WebRTC vs. HLS for live view: what latency does each give, why, and what does each cost to serve 10,000 viewers?
+          <span class="tag">UDP + jitter buffer vs. HTTP segments &middot; CDN cacheability</span></span></li>
+        <li><span class="q">Why might one camera use WebRTC for live and HLS from KVS for playback? What does the user see at the boundary?
+          <span class="tag">live vs. recorded</span></span></li>
+        <li><span class="q">Where does glass-to-glass latency come from, stage by stage, and which stage would you attack first?
+          <span class="tag">latency budget</span></span></li>
+        <li><span class="q">What does a media server like MistServer do, and why put one between a camera and its viewers?
+          <span class="tag">ingest any, output any &middot; fan-out &middot; transmux</span></span></li>
+        <li><span class="q">What does Kinesis Video Streams handle for you, and what's left to build? How would you pick retention?
+          <span class="tag">managed storage &middot; fragments &middot; cost</span></span></li>
+        <li><span class="q">Transcode vs. transmux: what does each cost per stream, and how do you design a fleet that rarely transcodes?
+          <span class="tag">CPU &middot; latency &middot; codec negotiation</span></span></li>
+        <li><span class="q">Walk through WebRTC setup: signaling, SDP, ICE, STUN, TURN, DTLS, SRTP. What does the standard leave to you?
+          <span class="tag">signaling is yours</span></span></li>
+        <li><span class="q">How does keyframe interval affect join time, bandwidth, and recovery after packet loss?
+          <span class="tag">GOP &middot; PLI</span></span></li>
+        <li><span class="q"><code>getStats()</code> counters are cumulative. Why ship counters rather than rates, and what does that do to your loss tolerance?
+          <span class="tag">ties back to M2's at-most-once</span></span></li>
+        <li><span class="q">A camera's upload is slower than its encoder. Where's the queue, and what drops first?
+          <span class="tag">the M2 backpressure question, in a video costume</span></span></li>
+        <li><span class="q">Design live view and event recording for 1M home cameras: capacity math for ingest, storage, and viewers.
+          <span class="tag">system design &middot; back-of-envelope</span></span></li>
+      </ol>
     </div>
   </section>
 
@@ -713,7 +824,7 @@
             <td class="ms">M2 &middot; In-Memory Concurrency</td>
             <td class="focus">Store, query, dispatch ring, worker pools</td>
             <td class="ms">6&ndash;8</td>
-            <td><span class="chip chip-active">Active</span></td>
+            <td><span class="chip chip-wait">Paused &rarr; Nov 25</span></td>
           </tr>
           <tr>
             <td class="ms">M3 &middot; SQS + LocalStack</td>
@@ -776,7 +887,7 @@
   </section>
 
   <footer>
-    <span>Updated 2026-10-09</span>
+    <span>Updated 2026-11-05</span>
     <span>Source of truth: <code>progress-log.md</code></span>
     <span><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake" target="_blank" rel="noopener">Study notes</a></span>
     <span>Claude maintains both</span>

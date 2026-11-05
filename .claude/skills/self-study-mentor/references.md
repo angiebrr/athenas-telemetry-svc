@@ -120,6 +120,56 @@ Implementation notes for M7: Deployment Frequency counts only *successful* produ
 
 ---
 
+## Video Track (side track, opened 2026-11-05)
+
+Not a milestone. A time-boxed detour for the SimpliSafe Video interview: real-time streaming, codecs, and transport. The schedule and exit criteria live in `progress-log.md`. **All URLs below returned 200 on 2026-11-05.** Read them in this order. Each later source assumes the earlier ones.
+
+**1. HowVideo.works** (Mux): <https://howvideo.works/>
+A one-sitting overview of the whole pipeline: capture, encoding, containers, delivery protocols, adaptive bitrate, playback. Read it first so the later sources have somewhere to hang. It is a vendor's site, so read anything comparing products skeptically. The explanations themselves are sound.
+
+**2. Digital Video Introduction** (Leandro Moreira): <https://github.com/leandromoreira/digital_video_introduction>
+How a codec actually works, with images and runnable ffmpeg experiments: color models, chroma subsampling, I/P/B frames, GOPs, intra and inter prediction, transforms, quantization, entropy coding, then H.264 bitstream structure and the online-streaming section. **This is the codec vocabulary interviews assume**: keyframe interval, GOP, profile/level, bitrate vs. quality. Do the ffmpeg exercises. They make the spike's ffmpeg step make sense.
+
+**3. WebRTC for the Curious** (Sean DuBois et al., Pion's authors): <https://webrtcforthecurious.com/>
+Free, protocol-first, and written by the people who wrote the library you'll use. Read in this order:
+
+| Chapter | Why |
+|---|---|
+| [1 What, Why and How](https://webrtcforthecurious.com/docs/01-what-why-and-how/) | The protocol stack in one picture |
+| [2 Signaling](https://webrtcforthecurious.com/docs/02-signaling/) | SDP offer/answer. WebRTC deliberately doesn't specify signaling, so the spike's HTTP endpoint *is* yours |
+| [3 Connecting](https://webrtcforthecurious.com/docs/03-connecting/) | NAT, STUN, TURN, ICE. The "why does it work at home but not on cellular" chapter |
+| [4 Securing](https://webrtcforthecurious.com/docs/04-securing/) | DTLS and SRTP. Skim it |
+| [5 Real-time Networking](https://webrtcforthecurious.com/docs/05-real-time-networking/) | Congestion control, NACK, FEC, jitter buffers. **The latency trade-offs live here** |
+| [6 Media Communication](https://webrtcforthecurious.com/docs/06-media-communication/) | RTP/RTCP, codecs in SDP, the RTCP reports `getStats()` numbers come from |
+| [9 Debugging](https://webrtcforthecurious.com/docs/09-debugging/) | `chrome://webrtc-internals`, and reading stats |
+
+**4. Pion examples:** <https://github.com/pion/webrtc/tree/master/examples>
+Read these, don't copy them. The spike is yours.
+- [`save-to-disk`](https://github.com/pion/webrtc/tree/master/examples/save-to-disk): browser webcam → Pion → files on disk. The spike's closest relative. Note which codec it writes and which container (IVF/Ogg), because that decides your ffmpeg step.
+- [`reflect`](https://github.com/pion/webrtc/tree/master/examples/reflect): the smallest full round trip. Read it first to see the moving parts.
+- [`whip-whep`](https://github.com/pion/webrtc/tree/master/examples/whip-whep): standard HTTP signaling (WHIP is [RFC 9725](https://datatracker.ietf.org/doc/html/rfc9725)). Worth considering for the spike's signaling instead of inventing a format.
+- [`stats`](https://github.com/pion/webrtc/tree/master/examples/stats) and [`rtcp-processing`](https://github.com/pion/webrtc/tree/master/examples/rtcp-processing): server-side stats in Go. Directly relevant to the getStats producer design.
+- [`broadcast`](https://github.com/pion/webrtc/tree/master/examples/broadcast): one uploader fanned out to many viewers. This is a tiny SFU (selective forwarding unit), the shape of a media server's WebRTC output.
+
+**5. Amazon Kinesis Video Streams developer guide**
+- [How it works](https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/how-it-works.html) and [data model](https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/how-data.html): producers, streams, consumers, and fragments (MKV, time-indexed).
+- Retention: `DataRetentionInHours` on [CreateStream](https://docs.aws.amazon.com/kinesisvideostreams/latest/APIReference/API_CreateStream.html). `0` means no storage, pass-through only.
+- [HLS playback](https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/hls-playback.html): live and on-demand from stored fragments. This is the "recording" half.
+- [Producer SDK and the GStreamer `kvssink` plugin](https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/examples-gstreamer-plugin.html): how cameras actually push. This is the posting's GStreamer line.
+- [KVS with WebRTC](https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/what-is-kvswebrtc.html), a *separate* product inside KVS: managed signaling channels plus STUN/TURN, master/viewer roles. Also [WebRTC ingestion and storage](https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/webrtc-ingestion.html) (`JoinStorageSession`), where one WebRTC session both serves live viewers and records to a stream.
+- Demos: [aws-samples/amazon-kinesis-video-streams-demos](https://github.com/aws-samples/amazon-kinesis-video-streams-demos).
+
+**6. MistServer docs:** <https://docs.mistserver.org/> (source: [DDVTECH/mistserver](https://github.com/DDVTECH/mistserver), Unlicense, actively maintained as of 2026-11)
+Read [Introduction](https://docs.mistserver.org/mistserver/introduction/), [Core Concepts](https://docs.mistserver.org/mistserver/concepts/), Inputs/Outputs, and the [protocol section](https://docs.mistserver.org/protocol/), especially [WebRTC](https://docs.mistserver.org/protocol/realtimestreaming/webrtc). The idea to take away: a media server takes **any protocol in and any protocol out** (RTMP/SRT/WHIP/RTSP in; HLS/DASH/WebRTC out), and it mostly *transmuxes* rather than transcodes. History worth knowing in one line: Livepeer acquired DDVTech in 2021, and it was spun back out to its engineers in 2023 ([announcement](https://news.mistserver.org/news/113/MistServer+independent+once+more)).
+
+**Supporting, for lookup rather than reading through:**
+- [MDN `RTCPeerConnection.getStats()`](https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/getStats) and the [W3C webrtc-stats spec](https://www.w3.org/TR/webrtc-stats/): which stat lives on which report type (`inbound-rtp`, `remote-inbound-rtp`, `candidate-pair`).
+- [HLS, RFC 8216](https://datatracker.ietf.org/doc/html/rfc8216): skim §3–4 for segments and playlists. [Apple's HLS docs](https://developer.apple.com/documentation/http-live-streaming) cover Low-Latency HLS.
+- [ffmpeg HLS muxer options](https://ffmpeg.org/ffmpeg-formats.html#hls-2): `hls_time`, `hls_playlist_type`, `hls_segment_type` (mpegts vs. fmp4).
+- [WebRTC samples](https://webrtc.github.io/samples/): browser-side `getUserMedia` and stats demos.
+
+---
+
 ## Corrections to the Source List
 
 The reference list in `.claude/project-context.md` has errors. Use the URLs in this file; flag these if she's citing them anywhere public (README, portfolio writeup), since a broken citation in a portfolio piece is worse than no citation.

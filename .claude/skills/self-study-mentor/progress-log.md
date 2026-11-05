@@ -10,15 +10,70 @@ Study notes: `.claude/skills/self-study-mentor/notes/` (shell `index.html` + one
 
 ## Current Position
 
-- **Milestone:** M2 — In-Memory Concurrency & Buffering (phase 1 of 3 complete)
-- **Branch:** `abreuer-M2-dispatch-ring` (off `main` after PR #5 merged as `5b40d90`)
-- **GOOS:** ch. 7 in progress (M2's range is 6–8)
-- **Educative:** Course 1, "What distributed systems achieve for us" (early)
-- **Last verified:** 2026-10-09 — `mise run test telemetry-svc --race` green with Angie's uncommitted Spec change (polling via `EventuallyWithT`, rewritten `TelemetryIngester` doc). Lint 0 issues in both modules. Container acceptance suite **not** run against this change.
+- **Active track:** 🎥 **Video track** (side track, 2026-11-05 → 2026-11-25). M2 is **paused, not abandoned**; see "Video Track" below.
+- **Milestone:** M2 — In-Memory Concurrency & Buffering (phase 1 of 3 complete; phase 2 design half done, no ring code yet)
+- **Branch:** `abreuer-M2-dispatch-ring` (off `main` after PR #5 merged as `5b40d90`). Clean. Last commit `3f0f3b4` on 2026-10-21. `abreuer-M2-add-buffer` exists but has no commits past `main`.
+- **Phase 2 state (audited 2026-11-05):** Decisions 1 and 2 are settled (fire-and-forget; shed with `503`). The Spec polls with `EventuallyWithT` (`4a00682`, `13f970a`), but it passes against the synchronous store, so there is still **no failing test driving the ring**. `internal/engine` does not exist. Next decision when M2 resumes: worker count vs. per-device ordering.
+- **GOOS:** ch. 7 in progress (M2's range is 6–8). Paused during the Video track.
+- **Educative:** Course 1, "What distributed systems achieve for us" (early). Paused during the Video track.
+- **Last verified:** 2026-11-05 — `mise run test telemetry-svc --race` green on `3f0f3b4` (api, config, data, shared, telemetry). Container acceptance suite **not** run since 2026-10-09; run it first on M2 re-entry.
 
 ---
 
-### M2 progress (as of 2026-09-21)
+## Video Track (side track, 2026-11-05 → 2026-11-25)
+
+**Why:** a referral for a Staff Software Engineer role on SimpliSafe's Video team, with interviews likely in 2–3 weeks. Their stack is Go, C#, TypeScript, AWS, Kubernetes, SQS, SNS, ffmpeg, and WebRTC. Per a friend on the team: Mist (MistServer) for livestream, Kinesis Video Streams for recording, WebRTC to viewers. The posting asks for real-time streaming, WebRTC/GStreamer/ffmpeg/libav, and streaming standards, codecs, and transport protocols, none of which she has worked with yet. **Budget: ~10 hrs/week × 3 weeks.** Sources are in `references.md` § Video Track.
+
+**Not a milestone.** It doesn't change the M1–M7 roadmap or any gate, and it adds nothing to `internal/`. One point of contact with Athenas: the getStats producer *design* below. Its implementation waits for M2.
+
+### Schedule
+
+| Week | Theme | Work (≈ hours) | Checkpoint |
+|---|---|---|---|
+| **1** · Nov 5–11 | Pixels to packets | HowVideo.works (2) · Digital Video Introduction through H.264 + "online streaming", with the ffmpeg exercises (3) · WebRTC for the Curious ch. 1–3 (3) · Run Pion `reflect` and `save-to-disk` *unchanged* with `chrome://webrtc-internals` open (2) | Explain, out loud, how one webcam frame reaches a viewer via WebRTC and via HLS, naming every protocol on the way |
+| **2** · Nov 12–18 | Real-time transport + the spike | WfC ch. 5, 6, 9; ch. 4 skimmed (4) · **Spike** (5): her Go/Pion recorder → ffmpeg → HLS · RFC 8216 §3–4 skim (1) | 30 s of webcam recorded by her code plays back as HLS in a browser |
+| **3** · Nov 19–25 | Managed services + design | KVS dev guide: how it works, data model, retention, HLS playback, kvssink, KVS WebRTC + ingestion/storage (3) · MistServer intro, concepts, protocols (1.5) · getStats → Athenas design on paper (2.5) · Question bank rehearsal + one system-design mock (3) | Answers the Video question bank to the standard (trade-offs both ways, failure mode, where to measure) |
+
+**If the interview lands in week 2:** move week 3's KVS + Mist reading and the rehearsal ahead of the spike. For an interview, reading pays off more than finishing the spike, and a half-finished spike is still worth talking about.
+
+### The spike (hers to write)
+
+A **spike** in XP's sense: throwaway code that answers a question, exempt from TDD *because* it gets thrown away. Keep it **out of this repo**, in a separate scratch repo, so the recruiter-facing Athenas history stays Spec-driven. Steps, each a checkpoint:
+
+1. Browser page: `getUserMedia` → `RTCPeerConnection`, offer posted to her Go server. Signaling choice is hers: a hand-rolled JSON POST, or WHIP (RFC 9725, Pion's `whip-whep` example).
+2. Go server (Pion): answer, receive the video track, write the RTP payload to a file with a Pion media writer.
+3. ffmpeg: package the recording as HLS (`.m3u8` + segments) and play it back (Safari natively, or hls.js elsewhere).
+4. Stretch: log `GetStats()` from the Pion side once a second while recording. This feeds the design below.
+
+**The decision the spike forces (worth more than the code):** the browser will likely negotiate VP8. HLS players expect H.264/HEVC, AV1 at best. So either **transcode** (`-c:v libx264`: CPU per stream, added latency, generation loss) or **negotiate H.264 in SDP** and **transmux** (`-c copy`: nearly free, but the codec choice is pushed to the edge, and every device has to support it). That transcode-vs-transmux trade is exactly what a fleet of cameras plus a media server is built around. Record which one she chose, and why, in the Decision Record.
+
+### Designing a getStats producer for Athenas, Spec-first (design only; build after the ring)
+
+Goal: WebRTC session quality (bitrate, packet loss, jitter, frames dropped, RTT) as a **real producer** for Athenas, instead of synthetic `ValidTelemetry`. These are her decisions. The options are laid out here so they don't get made implicitly:
+
+1. **What is the `device_id`?** Choices: the camera, the viewer session, or the peer connection. Stats are per connection *and* per direction: a sender sees `outbound-rtp` plus `remote-inbound-rtp` (loss and RTT reported back over RTCP), a receiver sees `inbound-rtp`. The identity choice decides what `GET /v1/telemetry/:device_id` can answer.
+2. **Counters or rates?** `getStats()` returns mostly **cumulative counters** (`bytesReceived`, `packetsLost`, `framesDropped`) plus a few gauges (`jitter`, `currentRoundTripTime`). Shipping raw counters means a lost sample costs only resolution, and the rate gets computed at query time (Prometheus's `rate()` model). Shipping producer-computed deltas makes each sample carry data that's gone if the sample is lost. **This collides directly with the 2026-10-09 fire-and-forget decision**, whose stated reversal condition was "telemetry that includes counters." Counters actually make at-most-once *safer* than deltas do. She should think that through before choosing.
+3. **Dimensions: flatten or extend the model?** `models.MetricReading` is `{Name, Value}` with no labels. Either flatten into names (`video.inbound.packets_lost`), which changes nothing, or add labels (kind, direction, SSRC), which changes the exported model and therefore starts with the Spec. Tie-in to the Observability questions: SSRC as a label is a cardinality bomb.
+4. **Edge cases the current validation doesn't know about.** `packetsLost` is **signed** and can go negative (RTP duplicates, RFC 3550). `getStats` timestamps are float **milliseconds**, but `Timestamp` is an `int64` with no stated unit. Counters reset when a connection restarts. Each one is a candidate Spec or unit case, and deciding which level each belongs at is the GOOS exercise.
+5. **Where does the producer run?** In the browser (sender-side view, needs CORS, untrusted client) or in the Pion server (receiver-side view, Go, trusted)? It could be both, with different `device_id`s.
+6. **Rate, batching, and the M2 tie-in.** At 1 Hz per stream, 100k RPS is 100k concurrent streams. That makes a realistic load generator for **phase 3's benchmark**, rather than a synthetic one. Batch several samples per POST, or one per request?
+
+**Spec-first order when it's built:** a new *producer* is not new *behavior*. If flattened names suffice, no Spec case changes. The producer gets its own tests in its own repo, and Athenas needs nothing. Only behavior Athenas must newly promise (labels round-tripping through query, a unit-bearing timestamp, accepting negative values on purpose) goes into `TelemetrySpec` red, before `internal/`. Saying where that line falls is itself a good interview answer.
+
+### Return to M2
+
+**Exit:** 2026-11-25, or the day after the final interview round if that's later. Any extension beyond one more week is a decision recorded here, not drift. Re-entry, in order:
+
+1. `mise run test` (the full run, including the container suite; it hasn't run since 2026-10-09). Then `mise run lint`.
+2. Re-read the two 2026-10-09 Decision Record entries and Study Notes ch. 1. Then decide worker count vs. per-device ordering. **The video track adds evidence:** RTP is per-SSRC ordered, and a jitter buffer exists because order matters, so she has a fresh argument for per-device ordering.
+3. Resume GOOS ch. 7 and Educative course 1 where they stopped. The "course 1 before M3" gate is unchanged.
+4. The getStats producer is the planned workload for phase 3's benchmark. The observability stack stays where it was planned (phase 3).
+
+**Paused for the track:** GOOS ch. 7–8, Educative course 1, the LMAX / Learn Go with Tests / SRE ch. 21 reading assignments, and the observability TODOs. None of them is cancelled.
+
+---
+
+### M2 progress (as of 2026-11-05; paused for the Video track)
 
 M2 was rescoped by Angie on 2026-08-26 into three ordered phases, because the charter's wording bolts a make-it-fast objective onto an early make-it-work milestone. Treat this order as settled; don't push the ring earlier.
 
@@ -146,6 +201,43 @@ Not milestone-scoped; these recur at every milestone and the answers get richer 
 - Your queue sheds with `503`. Which metric and alert tells you that's happening, and at what rate should someone be woken up?
 - Why serve `/metrics` on a separate port?
 
+### Video track — seeded 2026-11-05 (SimpliSafe Video, Staff)
+
+Staff-level questions are rarely definitions. Expect "design it" and "what breaks." Each of these has a follow-up that asks what you'd measure.
+
+*Delivery and latency*
+- WebRTC vs. HLS for live view: what latency does each give, why, and what does each cost to serve to 10,000 viewers? Why can a CDN cache one and not the other?
+- Live vs. recorded: why might the same camera use WebRTC to viewers and HLS (from KVS) for playback? Where does the switch happen in the UI, and what does the user see at the boundary?
+- Where does glass-to-glass latency come from? Name each stage, from capture and encode through the network and jitter buffer to decode and render, and which one you'd attack first.
+- What is LL-HLS, and what does it trade to get from ~10 s to ~2–3 s? Why isn't it WebRTC?
+- UDP vs. TCP for real-time media: why does WebRTC choose loss over delay? When does it fall back to TCP or TURN-over-TLS, and what happens to quality?
+
+*Codecs and packaging*
+- What is a GOP, and how does keyframe interval affect join time, seek, bandwidth, and recovery after loss?
+- Codec vs. container: H.264 in MPEG-TS, fMP4, MKV, IVF. Which container does each system in the stack use, and why does that matter for recording?
+- Transcode vs. transmux: what does each cost per stream, and how would you design a fleet so the server rarely transcodes?
+- A viewer's video freezes but audio keeps playing. Walk through the likely causes (lost keyframe, PLI/FIR, decoder stall) and what stats would tell them apart.
+- H.264 vs. VP8/VP9 vs. AV1 vs. HEVC for a battery-powered camera: hardware encode, licensing, browser support.
+
+*WebRTC mechanics*
+- Walk through a WebRTC session setup: signaling, SDP offer/answer, ICE candidates, STUN, TURN, DTLS, SRTP. Which parts does the standard leave to you?
+- What fraction of sessions need TURN, and what does TURN cost you (bandwidth, latency, servers)? How would you find out?
+- What do NACK, FEC, and PLI each do, and when is each the wrong tool?
+- How does WebRTC congestion control react to a bad uplink from a home camera? What would you see in `getStats()`?
+- P2P vs. SFU vs. MCU: when does a home-camera product want each? What changes when two family members watch at once?
+
+*Media servers and managed services*
+- What does a media server like MistServer actually do? Why put one between a camera and viewers instead of going P2P?
+- What does Kinesis Video Streams handle for you (ingest, durable time-indexed storage, retention, HLS/DASH/clip playback, WebRTC signaling + TURN), and what's left for you to build?
+- How would you pick a KVS retention period? What does retention cost, and how does event-triggered recording change the bill?
+- Build vs. buy: Mist (self-hosted) for live and KVS (managed) for recording. What does each choice trade, and what would make you consolidate?
+
+*Reliability and operations (where Athenas transfers)*
+- Which stream-quality metrics would you put on a dashboard, and which would wake someone up? Why does `device_id` (or SSRC) as a label break Prometheus?
+- `getStats()` counters are cumulative. Why ship counters rather than rates, and what does that do to your tolerance for losing telemetry?
+- A camera's upload is slower than its encoder. Where's the queue, what's the backpressure signal, and what should drop first? *(the M2 question, wearing a video costume)*
+- Design live view and event recording for 1M home cameras: capacity math for ingest bandwidth, storage per day, and concurrent viewers.
+
 ### M3–M7 — seeded as each milestone opens
 
 - **M3:** at-least-once vs. exactly-once; why consumers must be idempotent; what a visibility timeout buys.
@@ -165,7 +257,13 @@ Current, tied to the decision in front of her. Short — one at a time.
 | 2026-09-21 | [LMAX Disruptor paper](https://lmax-exchange.github.io/disruptor/disruptor.html) | M2 phase 2. A lock-free ring buffer built around cache-line padding, false sharing, and the single-writer principle — her particle-system optimization background applied directly to a queue. Gives her a production system to name. | Assigned |
 | 2026-09-21 | *Learn Go with Tests* — Concurrency, Select, Sync, Context | M2 phase 2, Go idiom | Assigned |
 | 2026-09-21 | Google SRE ch. 21, "Handling Overload" | M2 phase 2, load-shedding vocabulary | Assigned |
-| 2026-10-21 | Study Notes ch. 1, "Bounded Queues and Worker Pools" (+ its assignment) | M2 phase 2. Synthesis of the three readings above with this repo's decisions; the assignment is the phase 2 build as a behaviour checklist. | Assigned |
+| 2026-10-21 | Study Notes ch. 1, "Bounded Queues and Worker Pools" (+ its assignment) | M2 phase 2. Synthesis of the three readings above with this repo's decisions; the assignment is the phase 2 build as a behaviour checklist. | Assigned (paused for Video track) |
+| 2026-11-05 | [HowVideo.works](https://howvideo.works/) | Video track wk 1. Whole-pipeline overview | **Current** |
+| 2026-11-05 | [Digital Video Introduction](https://github.com/leandromoreira/digital_video_introduction), through H.264 + online streaming | Video track wk 1. Codec vocabulary; do the ffmpeg exercises | Next |
+| 2026-11-05 | [WebRTC for the Curious](https://webrtcforthecurious.com/) ch. 1–3, then 5, 6, 9 | Video track wk 1–2 | Queued |
+| 2026-11-05 | KVS dev guide + MistServer docs (see `references.md` § Video Track) | Video track wk 3 | Queued |
+
+The LMAX, Learn Go with Tests, and SRE ch. 21 rows above are **paused** for the Video track. They resume on M2 re-entry.
 
 ---
 
@@ -184,3 +282,5 @@ Current, tied to the decision in front of her. Short — one at a time.
 - **2026-09-28 — `api.ServerMode` + functional options on `NewServer`; `gin.SetMode` stays inside `api` (`c5a2139`).** Gin has no per-engine mode: v1.12.0 keeps it in a package-level atomic, and it only gates gin's own debug output. Options weighed: move `SetMode` to `main` (the global is visible where the process is assembled, but `main` has to import gin), or wrap it in `api` (gin stays in one package, and `NewServer` quietly changes global state). She took the wrapper, with the same validated functional-options shape as `config.InitEnv`. The cost is that `NewServer` has a process-wide side effect, which should be written down where callers will see it. Same day, the `StorerContract` leak case (`ee9bc4c`) now changes a `Metrics` element as well as `DeviceID`, so going back to a shallow `slices.Clone` would fail it. The skipped empty-ID handler case stays on purpose, as a placeholder for format validation.
 - **2026-10-09 — `202` means fire-and-forget: accepted into the in-memory buffer, not yet written.** Three options were weighed: fire-and-forget, group commit (the handler waits on a reply channel until its batch is flushed), and a synchronous write. Angie chose fire-and-forget. Her reasons: relying on devices to retry correctly is brittle; without reply channels the handler stays simple; a worker queue with a dead-letter path is a well-known pattern; and the data is informational, so losing some is acceptable. Costs she accepted: at-most-once delivery, since a crash or an undrained deploy loses what's buffered and the device never retries it; reliability after the `202` is the server's job; and the Spec becomes eventually consistent and must poll. Conditions that would reverse this: telemetry that includes counters or alarm events, where a lost reading is gone for good rather than replaced by the next sample, or a measured loss rate that turns out not to be small. Also noted: graceful shutdown belongs in the ring's own commit, not "eventually", because a buffer with no drain loses data on every deploy. Retry, backoff, and the dead-letter path wait for M3, since the M2 destination (the map) can't fail.
 - **2026-10-09 — Shed load when the queue is full.** Options weighed: block (no errors, but unbounded latency and handler goroutines piling up under sustained overload), shed (immediate `503`), or drop (`202`, then silently discard). Angie chose shed. This doesn't contradict the fire-and-forget reasoning: a shed happens *before* acceptance, so the device gets an honest failure it can act on or ignore, and the loss is visible at the boundary rather than hidden. Points raised for her to settle while building: `503` (server overloaded) vs. `429` (this client is over its limit, which becomes M6's Redis rate limit); a `Retry-After` value, picked for now and measured later; queue-full as the first retryable, callee-fault error class, which makes the error-classification debt concrete; and how to fill the queue on purpose in a test (it's an engine-level test, not a Spec case; options include a small capacity and a destination that blocks, which would be the repo's first test double).
+- **2026-11-05 — Video track opened as a side track; M2 paused, not replaced.** Trigger: a referral for a Staff role on SimpliSafe's Video team, with interviews expected in 2–3 weeks, and no streaming background yet. Budget ~10 hrs/week for 3 weeks (2026-11-05 → 2026-11-25). Options weighed: a new milestone (rejected: it would bend the M1–M7 roadmap around one application), interleaving video with M2 (rejected: 10 hrs/week split two ways finishes neither before the interview), or a time-boxed side track with a fixed return date (taken). Why it isn't a detour from the project's goal: the project's real exit criterion is the question bank, and the video questions are distributed-systems questions in another domain (queues and backpressure in the uplink, at-most-once telemetry, cardinality, build vs. buy). Rules: the spike lives in a **separate repo**, because it is throwaway and exempt from TDD, and this repo's history stays Spec-driven. The getStats → Athenas producer is **designed now and built after the ring**, where it becomes phase 3's realistic workload. Nothing goes into `internal/` during the track. Return: re-entry checklist in § Video Track. An extension beyond one week past the last interview round gets recorded here.
+- **2026-11-05 — Log audit.** The log was current through 2026-10-21, but the Current Position header still read 2026-10-09 / 2026-09-21. Corrected it after checking the branches and running the suite (see Current Position). No code changes since `3f0f3b4`.
