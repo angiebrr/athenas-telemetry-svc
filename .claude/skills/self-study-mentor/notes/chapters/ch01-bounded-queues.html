@@ -31,8 +31,10 @@
   <dl class="status">
     <div><dt>Settled</dt><dd><span class="chip chip-ok">decided</span> <code>202</code> means accepted into memory (fire-and-forget)</dd></div>
     <div><dt>Settled</dt><dd><span class="chip chip-ok">decided</span> A full queue sheds with <code>503</code></dd></div>
-    <div><dt>Open</dt><dd><span class="chip chip-warn">yours</span> How many workers, and does one device's order matter?</dd></div>
-    <div><dt>Deferred</dt><dd><span class="chip chip-wait">phase 3</span> Queue capacity, set from a benchmark</dd></div>
+    <div><dt>Settled</dt><dd><span class="chip chip-ok">decided</span> N workers on one shared queue; queries sort by timestamp on read (&sect;5)</dd></div>
+    <div><dt>Settled</dt><dd><span class="chip chip-ok">decided</span> The engine is an internal of <code>telemetry.Service</code>, which gains <code>Shutdown(ctx)</code></dd></div>
+    <div><dt>Settled</dt><dd><span class="chip chip-ok">decided</span> A blocking <code>Storer</code> stub fills the queue in tests</dd></div>
+    <div><dt>Deferred</dt><dd><span class="chip chip-wait">phase 3</span> Queue capacity and worker count: constructor parameters now, sized from a benchmark later</dd></div>
   </dl>
 
   <nav class="contents" aria-label="Sections">
@@ -54,8 +56,9 @@
     <h3>Read first</h3>
     <ul>
       <li><a href="https://quii.gitbook.io/learn-go-with-tests" target="_blank" rel="noopener"><em>Learn Go with Tests</em></a>: the Concurrency, Select, Sync and Context chapters. These cover the Go building blocks this chapter assumes.</li>
-      <li><a href="https://sre.google/sre-book/handling-overload/" target="_blank" rel="noopener">Google SRE book, ch. 21 &ldquo;Handling Overload&rdquo;</a>. The source for the shedding vocabulary in section 4.</li>
-      <li><a href="https://lmax-exchange.github.io/disruptor/disruptor.html" target="_blank" rel="noopener">The LMAX Disruptor paper</a>. A production ring buffer designed around cache lines, the part of this topic closest to your C++ background. Read it now; its techniques are phase 3 material, not phase 2.</li>
+      <li><a href="https://sre.google/sre-book/addressing-cascading-failures/" target="_blank" rel="noopener">Google SRE book, ch. 22 &ldquo;Addressing Cascading Failures&rdquo;</a>. Read &ldquo;Queue Management&rdquo; and &ldquo;Load Shedding and Graceful Degradation&rdquo; for this chapter; skim &ldquo;Retries&rdquo; and &ldquo;Process Updates&rdquo; (draining). Plainer than ch. 21 and closer to the build: why a full queue mostly adds latency, and why blocked work cascades.</li>
+      <li><a href="https://sre.google/sre-book/handling-overload/" target="_blank" rel="noopener">Google SRE book, ch. 21 &ldquo;Handling Overload&rdquo;</a> <em>(optional)</em>. The source for the shedding vocabulary in section 4, but much of it is Google's client-side throttling math. Ch. 22 covers what this chapter needs.</li>
+      <li><a href="https://lmax-exchange.github.io/disruptor/disruptor.html" target="_blank" rel="noopener">The LMAX Disruptor paper</a> <em>(phase 3)</em>. A production ring buffer designed around cache lines, the part of this topic closest to your C++ background. Its techniques are phase 3 material, so it can wait. For an easier way in, read the &ldquo;Input and Output Disruptors&rdquo; and &ldquo;Queues and their lack of mechanical sympathy&rdquo; sections of <a href="https://martinfowler.com/articles/lmax.html" target="_blank" rel="noopener">Martin Fowler's &ldquo;The LMAX Architecture&rdquo;</a> first.</li>
     </ul>
   </div>
 
@@ -332,7 +335,7 @@
     </figure>
 
     <div class="callout decision">
-      <h3><span class="chip chip-warn">your decision</span> How many workers, and does order matter?</h3>
+      <h3><span class="chip chip-ok">decided 2026-11-05</span> How many workers, and does order matter?</h3>
       <p>Four defensible answers. Pick one and record why in the Decision Record before you write the first test.</p>
       <div class="tablewrap" style="background: var(--paper);">
         <table>
@@ -346,6 +349,18 @@
         </table>
       </div>
       <p>Questions that settle it: does the Spec, or any client, depend on readings coming back in send order? Does the timestamp already carry the order that matters? What would you say if asked which option survives the store becoming SQS?</p>
+      <p><strong>Your answer:</strong> N workers on one shared queue, with no order kept through the pipeline, and queries sorted by timestamp on read. That combines rows two and four. Telemetry carries its own timestamp, so order can be restored where it's needed. Per-device queues shed as soon as one queue is full while others sit empty. It also carries over unchanged to SQS standard queues, which don't keep order either.</p>
+      <p>Two things that came up while deciding:</p>
+      <ul>
+        <li><strong>A shared channel needs no mutex from you.</strong> The channel is the synchronization. Per-worker queues wouldn't remove the store's mutex unless each worker also owned a shard of the store (the <em>single-writer principle</em>).</li>
+        <li><strong>A shared queue is the better load balancer.</strong> Whichever worker is idle takes the next item. Routing to the least-loaded of several queues would scatter a device's readings across queues, giving up the ordering that per-device queues exist for.</li>
+      </ul>
+      <p><strong>Costs you accepted:</strong> every read pays an O(<em>n</em> log <em>n</em>) sort; the order trusts device clocks; and equal timestamps need a tie rule. <strong>Reverse it</strong> if telemetry ever carries events or state changes, where applying them in the wrong order gives the wrong final state.</p>
+    </div>
+
+    <div class="callout recur">
+      <h3>Why video doesn't change this</h3>
+      <p>Media frames need strict order, but the media path already restores it: every RTP packet has a sequence number, and the receiver's jitter buffer reorders packets before decoding. Athenas would only carry telemetry <em>about</em> video, such as <code>getStats()</code> counters and gauges, each with its own timestamp. The general rule is to stamp order at the source and restore it where it's needed. Carrying order through the middle of a pipeline is expensive. That's the end-to-end argument again.</p>
     </div>
 
     <div class="callout recur">
@@ -490,6 +505,25 @@
       memory and growing wait times, and ends in an out-of-memory kill that loses <em>everything</em>
       queued. A bound turns that slow failure into a fast, visible one.
     </p>
+
+    <div class="callout read">
+      <h3>Why SRE ch. 22's &ldquo;50% of the thread pool&rdquo; rule doesn't transfer</h3>
+      <p>
+        Ch. 22 recommends queues of 50% of the thread pool or less, but for <em>thread-per-request</em> servers. There, a
+        queued request is a client waiting on the line, and another replica can take the request if this one rejects it.
+        Neither holds here. The <code>202</code> goes out at the put, so a queued reading costs staleness, not client
+        latency. And until M6 there's only one process. The queue's job is absorbing bursts, and device fleets are bursty:
+        everything reconnects after an outage at once. Ch. 22's own exception for bursty load (size by burst size and
+        frequency) points the same way.
+      </p>
+      <p>
+        The same method sizes the worker count. <strong>Workers &asymp; throughput &times; time per write &divide; readings per write.</strong>
+        A map write takes about 100&nbsp;ns, so one worker keeps up today, and N &gt; 1 mostly waits on the store's mutex.
+        At M3, 10,000 readings/s against a ~20&nbsp;ms <code>SendMessage</code> call is about 200 calls in flight, or about 20 with
+        10-message batches. These are assumed numbers; you'll measure the real ones. The question is your throughput and
+        latency, not SQS's capacity.
+      </p>
+    </div>
   </section>
 
   <!-- ================================================================ -->
@@ -527,23 +561,28 @@
     </p>
 
     <div class="callout decision">
-      <h3>Before the first test</h3>
+      <h3><span class="chip chip-ok">all decided 2026-11-05</span> Before the first test</h3>
       <ul>
-        <li>Make the &sect;5 decision and record it in the Decision Record.</li>
-        <li>Decide where the queue sits: between <code>telemetry.Service</code> and <code>data.Storer</code>, or somewhere else. GOOS ch. 7 has the vocabulary for that conversation.</li>
-        <li>Decide how a test will make the queue full on purpose. A map write never blocks, so the workers will always keep up. What would make them slow on demand?</li>
+        <li><s>Make the &sect;5 decision and record it in the Decision Record.</s> Shared queue, sort on read.</li>
+        <li><s>Decide where the queue sits.</s> Separate from <code>data.Storer</code> (processing vs. storage), built inside <code>telemetry.Service</code> as an internal (GOOS ch. 7: internals vs. peers). <code>Ingest</code> goes through the queue; <code>Query</code> reads the store directly. That's a command/query split, and the gap between the two paths is the eventual consistency the Spec polls for. The costs: <code>Service</code> gains <code>Shutdown(ctx)</code>, shaped like <code>http.Server.Shutdown</code> so <code>main</code> sets the deadline. Every test that builds a <code>Service</code> must shut it down. Capacity and N arrive as functional options.</li>
+        <li><s>Decide how a test fills the queue.</s> A <code>Storer</code> <strong>stub</strong> whose <code>Insert</code> blocks until the test releases it. With N workers and capacity C, offers 1&ndash;N park in <code>Insert</code>, the next C fill the queue, and offer N+C+1 must be refused. It's a stub, not a fake, because it controls an indirect input (when <code>Insert</code> returns); a fake is a <em>working</em> shortcut like <code>InMemoryStore</code>. Rejected: a hook in the engine that pretends to be full, which is the same trap as the 2026-09-26 config seam; and capacity alone, which is flaky because a map write drains a small queue faster than a test can fill it.</li>
       </ul>
     </div>
+
+    <p class="group-label">Spec (warm-up, do this first)</p>
+    <ul class="checks">
+      <li><input type="checkbox" id="s0"><label for="s0"><span class="what">Querying a device returns its readings sorted by timestamp.</span><span class="how">New promise, so it's a new <code>TelemetrySpec</code> case, red first: ingest a later reading, then an earlier one. Today's store returns them in insertion order, so it fails for the right reason. Decide where the sort lives (<code>telemetry.Query</code> or the <code>Storer</code> contract) and what happens with equal timestamps. Assert order only after both readings are visible.</span><span class="lvl">spec</span></label></li>
+    </ul>
 
     <p class="group-label">Engine (unit level)</p>
     <ul class="checks">
       <li><input type="checkbox" id="e1"><label for="e1"><span class="what">A reading offered while there's room is accepted and eventually reaches the store.</span><span class="how">The basic path. Your Spec's polling helper shows the shape of &ldquo;eventually&rdquo;.</span><span class="lvl">engine</span></label></li>
-      <li><input type="checkbox" id="e2"><label for="e2"><span class="what">When the queue is full, an offer returns a &ldquo;full&rdquo; error immediately.</span><span class="how">Two assertions: the error is the right kind, and the call didn't wait.</span><span class="lvl">engine</span></label></li>
-      <li><input type="checkbox" id="e3"><label for="e3"><span class="what">Everything accepted before shutdown is in the store when shutdown returns.</span><span class="how">Offer <em>K</em>, stop, count <em>K</em>. No polling needed after stop, and that's the point.</span><span class="lvl">engine</span></label></li>
+      <li><input type="checkbox" id="e2"><label for="e2"><span class="what">When the queue is full, an offer returns a &ldquo;full&rdquo; error immediately.</span><span class="how">Two assertions: the error is the right kind, and the call didn't wait. Use the blocking stub: N parked in <code>Insert</code>, C queued, and offer N+C+1 refused.</span><span class="lvl">engine</span></label></li>
+      <li><input type="checkbox" id="e3"><label for="e3"><span class="what">Everything accepted before shutdown is in the store when shutdown returns.</span><span class="how">Offer <em>K</em>, stop, count <em>K</em>. No polling needed after stop, and that's the point. Count with the real <code>InMemoryStore</code> (state verification), not a spy.</span><span class="lvl">engine</span></label></li>
       <li><input type="checkbox" id="e4"><label for="e4"><span class="what">An offer after shutdown has started is refused, and nothing panics.</span><span class="how">The send-on-closed-channel case from &sect;6, as a test.</span><span class="lvl">engine</span></label></li>
       <li><input type="checkbox" id="e5"><label for="e5"><span class="what">No goroutines are left running after shutdown.</span><span class="how">How would you detect a leaked worker? There's a well-known Uber library for exactly this; decide whether it earns a dependency.</span><span class="lvl">engine</span></label></li>
       <li><input type="checkbox" id="e6"><label for="e6"><span class="what">Many concurrent offerers, clean under <code>--race</code>.</span><span class="how"><code>mise run test telemetry-svc --race</code>. Remember what <code>-race</code> can't prove.</span><span class="lvl">engine</span></label></li>
-      <li><input type="checkbox" id="e7"><label for="e7"><span class="what">Ordering, per your &sect;5 decision.</span><span class="how">If order is kept per device, prove it with readings that would visibly swap. If it isn't, write down why no test is needed.</span><span class="lvl">engine</span></label></li>
+      <li><input type="checkbox" id="e7"><label for="e7"><span class="what">Ordering, per your &sect;5 decision.</span><span class="how">Decided: the engine keeps no order, so there's no engine test. Write down why. The order promise lives in the Spec's sort-on-read case instead.</span><span class="lvl">engine</span></label></li>
     </ul>
 
     <p class="group-label">Transport</p>
@@ -556,7 +595,8 @@
     <p class="group-label">Process and Spec</p>
     <ul class="checks">
       <li><input type="checkbox" id="m1"><label for="m1"><span class="what"><code>SIGTERM</code> drains the queue, then the process exits cleanly.</span><span class="how">Fig 1.5 in <code>main</code>. Stopping the acceptance container already sends it a signal; is that a test you want?</span><span class="lvl">main</span></label></li>
-      <li><input type="checkbox" id="m2"><label for="m2"><span class="what"><code>TelemetrySpec</code> stays green at both levels with no changes.</span><span class="how">You already weakened the promise in <code>4a00682</code>. If the Spec needs editing now, the ring changed behaviour it shouldn't have.</span><span class="lvl">spec</span></label></li>
+      <li><input type="checkbox" id="m2"><label for="m2"><span class="what"><code>TelemetrySpec</code> stays green at both levels, with no changes beyond the sort-order case.</span><span class="how">You already weakened the promise in <code>4a00682</code>. If the Spec needs any other edit once the ring lands, the ring changed behaviour it shouldn't have.</span><span class="lvl">spec</span></label></li>
+      <li><input type="checkbox" id="m3"><label for="m3"><span class="what">Every test that builds a <code>Service</code> shuts it down.</span><span class="how">The cost of the engine being an internal: <code>NewService</code> now starts goroutines, including in the domain-level Spec run. The goroutine-leak check in the engine list catches the ones you miss.</span><span class="lvl">domain</span></label></li>
     </ul>
 
     <div class="callout read">
