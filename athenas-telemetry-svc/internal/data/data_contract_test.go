@@ -1,8 +1,10 @@
 package data_test
 
 import (
+	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -65,6 +67,46 @@ func StorerContract(testCtx *testing.T, store data.Storer) {
 
 		// Verify that the retrieved data is empty
 		assert.Empty(subTestCtx, retrievedData)
+	})
+
+	testCtx.Run("data should be sorted by timestamp", func(subTestCtx *testing.T) {
+		// Create a series of data where the first entry is the oldest and the last is the newest
+		numEntries := 5
+		sampleData, deviceID := shared.ValidTelemetryN(numEntries)
+		baseTime := time.Now()
+		for idx := range sampleData {
+			// Update the timestamp + device ID so it's in a predictable order
+			currData := &sampleData[idx]
+			durationFromNow := time.Duration(idx) * time.Second
+			newTime := baseTime.Add(durationFromNow)
+			currData.Timestamp = newTime.UnixMilli()
+			currData.DeviceID = deviceID
+
+			// Insert the sample data into the store
+			err := store.Insert(*currData)
+			require.NoError(subTestCtx, err)
+		}
+
+		// Retrieve the data by device ID
+		retrievedData, err := store.GetByDeviceID(deviceID)
+		require.NoError(subTestCtx, err)
+
+		// Should return data so the newest is returned first
+		expectedData := []models.Telemetry{
+			sampleData[4],
+			sampleData[3],
+			sampleData[2],
+			sampleData[1],
+			sampleData[0],
+		}
+
+		getTimestampFn := func(data models.Telemetry, idx int) string {
+			return fmt.Sprintf("idx=%d  ts=%s", idx, time.UnixMilli(data.Timestamp))
+		}
+		got := shared.SliceMap(retrievedData, getTimestampFn)
+		want := shared.SliceMap(expectedData, getTimestampFn)
+
+		assert.Equal(subTestCtx, want, got, "timestamps are not in expected order for data:\n\t%+v", retrievedData)
 	})
 
 	testCtx.Run("insert multiple data entries for the same device ID", func(subTestCtx *testing.T) {
