@@ -101,7 +101,7 @@ func StorerContract(testCtx *testing.T, store data.Storer) {
 		}
 
 		getTimestampFn := func(data models.Telemetry, idx int) string {
-			return fmt.Sprintf("idx=%d  ts=%s", idx, time.UnixMilli(data.Timestamp))
+			return fmt.Sprintf("idx=%d  ts=%d", idx, data.Timestamp)
 		}
 		got := shared.SliceMap(retrievedData, getTimestampFn)
 		want := shared.SliceMap(expectedData, getTimestampFn)

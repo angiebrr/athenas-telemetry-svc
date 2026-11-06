@@ -50,23 +50,39 @@ func (rStore *InMemoryStore) Insert(newTelemetry ...models.Telemetry) error {
 // The returned results are a copy so that the caller can safely read them without worrying
 // about concurrent modifications to the underlying data.
 func (rStore *InMemoryStore) GetByDeviceID(deviceID string) ([]models.Telemetry, error) {
-	rStore.mu.Lock()
-	defer rStore.mu.Unlock()
+	var clonedResults []models.Telemetry
+	{
+		rStore.mu.Lock()
+		defer rStore.mu.Unlock()
 
-	// retrieve telemetry from device
-	results, exists := rStore.storedData[deviceID]
-	if !exists {
-		return nil, NotFoundError{DeviceID: deviceID}
+		// retrieve telemetry from device
+		results, exists := rStore.storedData[deviceID]
+		if !exists {
+			return nil, NotFoundError{DeviceID: deviceID}
+		}
+
+		// copy over results to make sure the caller will have thread-safe reads
+		//
+		// NOTE: can't just use slices.Clone(results) because we need a deep-copy
+		clonedResults = make([]models.Telemetry, len(results))
+		for idx, currData := range results {
+			clonedResults[idx] = currData
+			clonedResults[idx].Metrics = slices.Clone(currData.Metrics)
+		}
 	}
 
-	// copy over results to make sure the caller will have thread-safe reads
+	// Sort data in descending order after releasing lock
 	//
-	// NOTE: can't just use slices.Clone(results) because we need a deep-copy
-	clonedResults := make([]models.Telemetry, len(results))
-	for idx, currData := range results {
-		clonedResults[idx] = currData
-		clonedResults[idx].Metrics = slices.Clone(currData.Metrics)
-	}
+	// NOTE: This could probably be improved by sorting when we insert, but this storage type is used for
+	// for testing and isn't going to be used in prod systems
+	slices.SortFunc(clonedResults, func(dataA, dataB models.Telemetry) int {
+		if dataA.Timestamp == dataB.Timestamp {
+			return 0
+		} else if dataA.Timestamp > dataB.Timestamp {
+			return -1
+		}
+		return 1
+	})
 
 	return clonedResults, nil
 }
