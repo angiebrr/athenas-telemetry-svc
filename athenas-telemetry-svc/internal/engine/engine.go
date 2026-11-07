@@ -32,7 +32,7 @@ func NewQueue(store data.Storer) (*Queue, error) {
 // Queue.PushTelemetry
 // TODO: Make docstring, it's not worth doing until it's fully implemented
 func (rQueue *Queue) PushTelemetry(newTelemetry ...models.Telemetry) error {
-	// FIXME: Make queue
+	// FIXME: This needs to actually use workers and a queue, but need a better test for that first
 	go func() {
 		_ = rQueue.store.Insert(newTelemetry...)
 	}()

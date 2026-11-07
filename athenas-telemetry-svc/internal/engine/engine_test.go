@@ -72,6 +72,8 @@ func TestEngineQueue(testCtx *testing.T) {
 		}, eventuallyWaitFor, eventuallyTick)
 	})
 
+	// FIXME: potentially remove this test after implementing the full queue test, as this may be
+	// redundant
 	testCtx.Run("queued readings are async from data insertions", func(subTestCtx *testing.T) {
 		blockingStore := NewBlockingDataStore()
 		subTestCtx.Cleanup(func() {
