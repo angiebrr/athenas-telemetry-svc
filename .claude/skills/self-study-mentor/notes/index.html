@@ -858,6 +858,17 @@
   };
   const PART_LETTER = "ABCDEFG";
 
+  const RUBRIC_TABLE =
+    '<div class="tablewrap rubric-key"><table>' +
+    "<thead><tr><th>Checkbox</th><th>Tick it when your answer…</th></tr></thead><tbody>" +
+    "<tr><td>Trade-off, both directions</td><td>says what the choice buys <em>and</em> what it costs</td></tr>" +
+    "<tr><td>A failure mode it doesn't cover</td><td>names something that can still go wrong despite the choice, like a crash losing queued readings even with a drain</td></tr>" +
+    "<tr><td>Where I'd measure it</td><td>names a metric, test, or signal that would tell you it's working or failing</td></tr>" +
+    "<tr><td>Bonus: a production system</td><td>names a real system that made the same call, like Kafka's producer buffer or the LMAX Disruptor</td></tr>" +
+    "</tbody></table></div>" +
+    '<p class="how">Your ticks are separate from Claude\'s grade, which marks the same four points ✓ or ✗. ' +
+    "A box you ticked that Claude marked ✗ usually means you thought you covered it but didn't say it clearly enough.</p>";
+
   function keyOf(set, id) { return id.startsWith(set.id + "-") ? id.slice(set.id.length + 1) : id; }
 
   function renderMatch(set, part, pi) {
@@ -1011,9 +1022,14 @@
       "then the open questions. " + counts + " interview question" + (counts === 1 ? "" : "s") + " from the question bank are at the end.</p>" +
       '<p class="sync-status" aria-live="polite" data-mode="' + syncMode + '">' + SYNC_TEXT[syncMode] + "</p></header>";
 
+    let rubricExplained = false;
     set.parts.forEach((part, pi) => {
       html += '<section class="hw-part" data-pi="' + pi + '"><h2><span class="sec">Part ' + PART_LETTER[pi] + "</span>" + esc(part.title) + "</h2>" +
         '<p class="how">' + PART_HOW[part.type] + "</p>";
+      if (part.type === "interview" && !rubricExplained) {
+        rubricExplained = true;
+        html += RUBRIC_TABLE;
+      }
       if (part.type === "match") html += renderMatch(set, part, pi);
       else if (part.type === "blank") html += renderBlank(set, part, pi);
       else if (part.type === "mc") html += renderMC(set, part, pi);
