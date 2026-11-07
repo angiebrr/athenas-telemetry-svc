@@ -341,6 +341,135 @@
 
   .loading, .failed { color: var(--muted); font-size: 15px; }
 
+  /* ---------- cross-links ---------- */
+  .lib-links { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 14px; color: var(--muted); }
+  .lib-links a { font-weight: 600; text-decoration: none; }
+  .lib-links a:hover { text-decoration: underline; }
+  .site-foot { border-top: 1px solid var(--line); padding-top: 16px; display: flex; flex-wrap: wrap; gap: 6px 20px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+  /* ---------- sync + grading ---------- */
+  .sync-status { font-family: var(--mono); font-size: 12px; color: var(--muted); margin: 0; }
+  .sync-status[data-mode="synced"] { color: var(--ok); }
+  .sync-status[data-mode="offline"], .sync-status[data-mode="full"] { color: var(--warn); }
+
+  .grade-row { display: none; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+  body.has-claude .grade-row { display: flex; }
+  .btn.small { font-size: 13px; padding: 5px 11px; }
+  .btn:disabled { opacity: .55; cursor: progress; }
+  .grade-status { font-size: 13px; color: var(--muted); }
+  .mv-badge { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); }
+
+  .confirm, .critique, .model { border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; font-size: 14.5px; }
+  .confirm { background: var(--warn-soft); }
+  .confirm p { margin: 0; color: var(--ink-soft); max-width: 66ch; }
+  .critique { background: var(--paper-alt); border: 1px solid var(--line-soft); }
+  .critique h4 { margin: 4px 0 0; font-size: 13px; font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .critique ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+  .critique p { margin: 0; }
+  .crit-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+  .crit-sum { font-weight: 600; min-width: 0; }
+  .verdict { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+  .v-strong { background: var(--ok-soft); color: var(--ok); }
+  .v-adequate { background: var(--accent-soft); color: var(--accent); }
+  .v-weak, .v-off-target { background: var(--bad-soft); color: var(--bad); }
+  .std { display: flex; flex-wrap: wrap; gap: 6px; }
+  .std-chip { font-size: 12.5px; padding: 1px 8px; border-radius: 4px; border: 1px solid var(--line-soft); }
+  .std-chip.yes { color: var(--ok); background: var(--ok-soft); border-color: transparent; }
+  .std-chip.no { color: var(--bad); background: var(--paper); }
+  .follow { color: var(--ink-soft); }
+  .crit-meta { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .model { background: var(--paper); border: 1px dashed var(--warn); }
+  .model-label { margin: 0; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--warn); }
+  .model-text { margin: 0; white-space: pre-wrap; max-width: 70ch; }
+
+  /* ---------- library sections ---------- */
+  .lib-section { display: flex; flex-direction: column; gap: 14px; }
+  .lib-section > h2 { font-family: var(--serif); font-weight: 600; font-size: 24px; margin: 0; }
+  .lib-section > p { margin: 0; color: var(--ink-soft); max-width: 66ch; font-size: 15px; }
+
+  .hw-list { list-style: none; margin: 0; padding: 0; background: var(--paper); border: 1px solid var(--line-soft); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+  .hw-list li { border-bottom: 1px solid var(--line-soft); }
+  .hw-list li:last-child { border-bottom: 0; }
+  .hw-list a { display: grid; grid-template-columns: 48px 1fr auto; gap: 14px; align-items: baseline; padding: 14px 18px; text-decoration: none; color: inherit; }
+  .hw-list a:hover { background: var(--paper-alt); }
+  .hw-list .n { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); }
+  .hw-list .t { font-weight: 600; font-size: 15.5px; min-width: 0; }
+  .hw-list .t small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; font-family: var(--mono); margin-top: 2px; }
+  .hw-list .p { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  @media (max-width: 520px) {
+    .hw-list a { grid-template-columns: 40px 1fr; }
+    .hw-list .p { grid-column: 2; }
+  }
+
+  /* ---------- homework view ---------- */
+  .hw { display: flex; flex-direction: column; gap: 28px; }
+  .hw header { display: flex; flex-direction: column; gap: 10px; border-bottom: 2px solid var(--line); padding-bottom: 22px; }
+  .hw h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(28px, 5vw, 40px); line-height: 1.12; letter-spacing: -.015em; margin: 0; text-wrap: balance; }
+  .hw .lede { margin: 0; color: var(--ink-soft); max-width: 64ch; }
+
+  .hw-part { display: flex; flex-direction: column; gap: 12px; }
+  .hw-part > h2 { font-family: var(--serif); font-weight: 600; font-size: 22px; margin: 0; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  .hw-part > h2 .sec { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--accent); letter-spacing: .04em; }
+  .hw-part > .how { margin: -4px 0 0; font-size: 14px; color: var(--muted); max-width: 66ch; }
+
+  .sheet { background: var(--paper); border: 1px solid var(--line-soft); border-radius: 12px; overflow: hidden; }
+  .item { padding: 14px 18px; border-bottom: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .item:last-child { border-bottom: 0; }
+  .item .q { font-size: 15.5px; max-width: 70ch; }
+  .item .q .num { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-right: 8px; }
+  .item.is-right { box-shadow: inset 4px 0 0 var(--ok); }
+  .item.is-wrong { box-shadow: inset 4px 0 0 var(--bad); }
+
+  .match-row { display: grid; grid-template-columns: 1fr minmax(180px, 240px); gap: 14px; align-items: center; }
+  @media (max-width: 560px) { .match-row { grid-template-columns: 1fr; gap: 6px; } }
+
+  select, input[type=text], textarea {
+    font: inherit;
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--paper-alt);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 10px;
+    min-width: 0;
+    max-width: 100%;
+  }
+  select { width: 100%; }
+  input[type=text] { width: 13em; font-family: var(--mono); font-size: 14px; padding: 3px 8px; }
+  textarea { width: 100%; min-height: 110px; resize: vertical; line-height: 1.55; }
+  select:focus, input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+
+  .opts { display: flex; flex-direction: column; gap: 4px; }
+  .opts label { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; font-size: 15px; cursor: pointer; padding: 3px 6px; border-radius: 6px; }
+  .opts label.right { background: var(--ok-soft); }
+  .opts label.wrong { background: var(--bad-soft); }
+  .opts input { margin: 4px 0 0; accent-color: var(--accent); }
+
+  .feedback { font-size: 13.5px; color: var(--muted); }
+  .feedback.ok { color: var(--ok); }
+  .feedback.bad { color: var(--bad); }
+
+  .refs { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 13px; color: var(--muted); }
+  .refs a { font-family: var(--mono); font-size: 12px; text-decoration: none; background: var(--accent-soft); color: var(--accent); padding: 1px 7px; border-radius: 4px; }
+  .refs a:hover { text-decoration: underline; }
+
+  .rubric { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13.5px; color: var(--ink-soft); }
+  .rubric label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .rubric input { accent-color: var(--ok); }
+
+  .part-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .btn {
+    font: inherit; font-size: 14px; font-weight: 600;
+    padding: 7px 14px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--accent); background: var(--accent); color: var(--paper);
+  }
+  .btn.ghost { background: transparent; color: var(--accent); }
+  .btn:hover { filter: brightness(1.08); }
+  .score { font-family: var(--mono); font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+  .hw-nav { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-family: var(--mono); font-size: 13px; border-top: 1px solid var(--line); padding-top: 18px; }
+  .hw-nav a { text-decoration: none; }
+
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 </style>
 
@@ -351,46 +480,34 @@
         <p class="eyebrow">athenas-telemetry-svc &middot; self-directed study</p>
         <h1>Athena Study Notes</h1>
         <p>
-          One chapter per major design topic, written alongside the build. Each chapter explains the
-          behaviour and the trade-offs, points at the primary reading, and ends with an assignment
-          stated as behaviours to drive test-first. None of them contain the implementation.
+          One chapter per major design topic, written alongside the build, with a homework set for each.
+          Chapters explain the behaviour and the trade-offs and point at the primary reading. None of them
+          contain the implementation. Every question in the interview question bank appears in one
+          homework set, and every one can be answered from these chapters.
+        </p>
+        <p class="lib-links">
+          <a href="https://claude.ai/artifact/4DEea8wrLBwpdkRu9mV1Qk" target="_blank" rel="noopener">Progress tracker &rarr;</a>
+          <span>where the build stands, what to read next, the work queue</span>
         </p>
       </header>
 
-      <ol class="toc-list" style="margin-top: 28px;">
-        <li>
-          <a class="entry" href="#ch01">
-            <span class="num">1</span>
-            <div>
-              <h2>Bounded Queues and Worker Pools</h2>
-              <p>The in-memory queue between the HTTP handler and the store: ring buffers, shedding when full, ordering across workers, and draining on shutdown.</p>
-              <div class="meta"><span>M2 &middot; phase 2</span><span>assignment included</span><span>written 2026-10-21</span><span>updated 2026-11-05: decisions in</span></div>
-            </div>
-          </a>
-        </li>
-        <li>
-          <div class="entry planned">
-            <span class="num">2</span>
-            <div>
-              <h2>Delivery Guarantees and Idempotency</h2>
-              <p>At-most-once, at-least-once, and why exactly-once is a property of the consumer. Visibility timeouts and dead-letter queues.</p>
-              <div class="meta"><span>M3 &middot; planned</span></div>
-            </div>
-          </div>
-        </li>
-        <li>
-          <div class="entry planned">
-            <span class="num">3</span>
-            <div>
-              <h2>The Transactional Outbox</h2>
-              <p>Making a database write and a published event agree without two-phase commit.</p>
-              <div class="meta"><span>M4 &middot; planned</span></div>
-            </div>
-          </div>
-        </li>
-      </ol>
+      <section class="lib-section" style="margin-top: 28px;">
+        <h2>Chapters</h2>
+        <ol class="toc-list" id="toc"></ol>
+      </section>
 
-      <p class="lib-note" style="margin-top: 24px;">
+      <section class="lib-section" style="margin-top: 36px;">
+        <h2>Homework</h2>
+        <p>
+          Each set has vocabulary matching, fill-in-the-blank, and multiple choice you can check yourself, then
+          short-answer and interview questions. The open questions have no answer key on purpose: each points to
+          the section that answers it. Grade yourself against the interview standard, or ask Claude for a critique,
+          with a model answer held back for when you're stuck. Answers sync across your devices.
+        </p>
+        <ol class="hw-list" id="hw-list"></ol>
+      </section>
+
+      <p class="lib-note" style="margin-top: 28px;">
         Written by Claude as a study companion. The reading in each chapter's &ldquo;Read first&rdquo; box is the
         primary material; these notes connect it to decisions in this repo.
       </p>
@@ -403,22 +520,296 @@
       </nav>
       <div id="chapter-body" style="margin-top: 20px;"></div>
     </div>
+
+    <div id="hw-view" hidden>
+      <nav class="topbar" aria-label="Homework navigation">
+        <a href="#">&larr; All chapters and homework</a>
+        <span class="eyebrow" id="hw-crumb"></span>
+      </nav>
+      <div id="hw-body" style="margin-top: 20px;"></div>
+    </div>
   </main>
+
+  <footer class="site-foot">
+    <a href="#">Study notes</a>
+    <a href="https://claude.ai/artifact/4DEea8wrLBwpdkRu9mV1Qk" target="_blank" rel="noopener">Progress tracker</a>
+    <span>Source of truth: <code>progress-log.md</code></span>
+  </footer>
 </div>
 
+<script src="homework.js"></script>
 <script>
   const CHAPTERS = {
-    ch01: { file: "chapters/ch01-bounded-queues.html", crumb: "Chapter 1 · M2" },
+    ch01: { file: "chapters/ch01-bounded-queues.html", title: "Bounded Queues and Worker Pools", crumb: "Chapter 1 · M2",
+            blurb: "The in-memory queue between the HTTP handler and the store: ring buffers, shedding when full, ordering across workers, and draining on shutdown.",
+            meta: ["M2 · phase 2", "build assignment", "written 2026-10-21", "updated 2026-11-05"] },
+    ch02: { file: "chapters/ch02-testing-outside-in.html", title: "Testing Outside-In: The Shape of This Suite", crumb: "Chapter 2 · cross-cutting",
+            blurb: "Levels vs. contracts vs. isolation, the five kinds of test double, Spec and Driver, red for the right reason, and M1's structural decisions.",
+            meta: ["cross-cutting · M1", "written 2026-11-06"] },
+    ch03: { file: "chapters/ch03-races-and-ownership.html", title: "Shared Memory, Races, and Ownership", crumb: "Chapter 3 · M2",
+            blurb: "Data races vs. race conditions, what -race can prove, the slice that escapes the lock, and mutex vs. an owning goroutine.",
+            meta: ["M2", "written 2026-11-06"] },
+    ch04: { file: "chapters/ch04-overload-and-delivery.html", title: "Overload, Retries, and What 202 Promises", crumb: "Chapter 4 · M2",
+            blurb: "At-most-once and how to measure loss, the end-to-end argument, block vs. shed vs. drop, open systems, and retries with jitter.",
+            meta: ["M2", "written 2026-11-06"] },
+    ch05: { file: "chapters/ch05-configuration.html", title: "Configuration and the Composition Root", crumb: "Chapter 5 · M2",
+            blurb: "Config precedence, the test that couldn't fail, 12-factor and APP_ENV, global switches, and zero values at a JSON boundary.",
+            meta: ["M2 in review", "written 2026-11-06"] },
+    ch06: { file: "chapters/ch06-observability.html", title: "Metrics, Logs, and Cardinality", crumb: "Chapter 6 · observability",
+            blurb: "Series and cardinality, why device_id can't be a label, how Loki indexes, RED and USE, histograms vs. summaries, and alerting on shedding.",
+            meta: ["M2 phase 3 · M7", "written 2026-11-06"] },
+    ch07: { file: "chapters/ch07-codecs-and-packaging.html", title: "Video I: Codecs, GOPs, and Containers", crumb: "Chapter 7 · video track",
+            blurb: "Frame types and keyframe interval, codec vs. container, transcode vs. transmux, and picking a codec for a battery camera.",
+            meta: ["video track · week 1", "written 2026-11-06"] },
+    ch08: { file: "chapters/ch08-webrtc.html", title: "Video II: WebRTC and Real-Time Transport", crumb: "Chapter 8 · video track",
+            blurb: "Session setup, NAT and TURN, UDP over TCP, NACK/FEC/PLI, congestion control, diagnosing a freeze, SFUs, and glass-to-glass latency.",
+            meta: ["video track · weeks 1–2", "written 2026-11-06"] },
+    ch09: { file: "chapters/ch09-video-at-scale.html", title: "Video III: Delivery, Media Servers, and Scale", crumb: "Chapter 9 · video track",
+            blurb: "HLS and LL-HLS, live vs. recorded, media servers and KVS, stream telemetry as counters, and capacity math for 1M cameras.",
+            meta: ["video track · week 3", "written 2026-11-06"] },
+    ch10: { file: "chapters/ch10-road-ahead.html", title: "The Road Ahead: Delivery to DORA", crumb: "Chapter 10 · M3–M7",
+            blurb: "A preview of the remaining milestones through their interview questions: delivery guarantees, the outbox, Kafka, linearizable rate limits, and DORA.",
+            meta: ["M3–M7 preview", "written 2026-11-06"] },
   };
+
+  const PLANNED = [
+    { num: 11, title: "Delivery Guarantees and Idempotency", blurb: "The full M3 chapter: SQS against LocalStack, retries, idempotent consumers, and dead-letter queues.", meta: "M3 · planned" },
+    { num: 12, title: "The Transactional Outbox", blurb: "The full M4 chapter: making a database write and a published event agree without two-phase commit.", meta: "M4 · planned" },
+  ];
+
+  const HW = {};
+  (window.ATHENA_HW || []).forEach((set) => { HW[set.id] = set; });
 
   const library = document.getElementById("library");
   const chapterView = document.getElementById("chapter-view");
   const chapterBody = document.getElementById("chapter-body");
   const crumb = document.getElementById("chapter-crumb");
+  const hwView = document.getElementById("hw-view");
+  const hwBody = document.getElementById("hw-body");
+  const hwCrumb = document.getElementById("hw-crumb");
   const cache = {};
+  let currentSet = null;
 
   function storageGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
   function storageSet(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
+
+  function esc(text) {
+    return String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  }
+
+  // "ch04-s5" -> "Ch 4 §5"
+  function refLabel(ref) {
+    const m = /^ch(\d\d)(?:-s(\d+))?$/.exec(ref);
+    if (!m) return ref;
+    return "Ch " + Number(m[1]) + (m[2] ? " §" + m[2] : "");
+  }
+  function refLinks(refs) {
+    return '<div class="refs"><span>Look in:</span>' +
+      refs.map((r) => '<a href="#' + r + '">' + refLabel(r) + "</a>").join("") + "</div>";
+  }
+
+  async function chapterHtml(id) {
+    if (!cache[id]) {
+      const res = await fetch(CHAPTERS[id].file);
+      if (!res.ok) throw new Error("chapter " + res.status);
+      cache[id] = await res.text();
+    }
+    return cache[id];
+  }
+
+  // ================================================================ answer store
+  //
+  // One document per homework set at answers/<setId>:
+  //   { fields: {key: string}, critiques: {key: {...}}, modelViewed: {key: true}, updatedAt }
+  // Keys are element ids without the set prefix ("p3-0", "p4-0-r1"). A localStorage mirror keeps
+  // the page usable offline or outside a Claude viewer; the db, when available, follows the viewer
+  // across devices.
+
+  const STATE = {};
+  const dirty = {};
+  const writers = {};
+  let db = null;
+  let syncMode = "connecting";
+  let sampleFn = null;
+
+  function blankState() { return { fields: {}, critiques: {}, modelViewed: {} }; }
+
+  function loadLocal(setId) {
+    const s = blankState();
+    try {
+      const raw = localStorage.getItem("athena-hw-state:" + setId);
+      if (raw) {
+        const p = JSON.parse(raw);
+        Object.assign(s.fields, p.fields || {});
+        Object.assign(s.critiques, p.critiques || {});
+        Object.assign(s.modelViewed, p.modelViewed || {});
+        return s;
+      }
+      // Per-key storage from the first version of this page.
+      const prefix = "athena-hw:" + setId + ":";
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || !k.startsWith(prefix)) continue;
+        let f = k.slice(prefix.length);
+        if (f.startsWith(setId + "-")) f = f.slice(setId.length + 1);
+        s.fields[f] = localStorage.getItem(k);
+      }
+    } catch (e) {}
+    return s;
+  }
+  function saveLocal(setId) { storageSet("athena-hw-state:" + setId, JSON.stringify(STATE[setId])); }
+  function stateFor(setId) { if (!STATE[setId]) STATE[setId] = loadLocal(setId); return STATE[setId]; }
+
+  function markDirty(setId, dkey) {
+    (dirty[setId] = dirty[setId] || new Set()).add(dkey);
+    saveLocal(setId);
+    scheduleWrite(setId);
+  }
+  function setField(setId, key, value) {
+    const s = stateFor(setId);
+    if (s.fields[key] === value) return;
+    s.fields[key] = value;
+    markDirty(setId, "f:" + key);
+  }
+
+  function scheduleWrite(setId) {
+    if (!db) return;
+    const w = writers[setId] = writers[setId] || {};
+    clearTimeout(w.timer);
+    w.timer = setTimeout(() => flush(setId), 1000);
+  }
+
+  async function flush(setId) {
+    if (!db) return;
+    const w = writers[setId] = writers[setId] || {};
+    if (w.inflight) { w.again = true; return; }
+    w.inflight = true;
+    const sending = new Set(dirty[setId] || []);
+    setSync("saving");
+    try {
+      await db.doc("answers/" + setId).set(Object.assign({}, STATE[setId], { updatedAt: new Date().toISOString() }));
+      sending.forEach((k) => dirty[setId] && dirty[setId].delete(k));
+      w.retried = false;
+      setSync("synced");
+    } catch (e) {
+      if (e && e.code === "unavailable" && !w.retried) {
+        w.retried = true;
+        setTimeout(() => { w.inflight = false; flush(setId); }, 600 + Math.random() * 900);
+        return;
+      }
+      w.retried = false;
+      setSync(e && e.code === "quota_exceeded" ? "full" : "offline");
+    }
+    w.inflight = false;
+    if (w.again) { w.again = false; flush(setId); }
+  }
+
+  function applyRemote(setId, data) {
+    const s = stateFor(setId);
+    const d = dirty[setId] || new Set();
+    [["fields", "f:"], ["critiques", "c:"], ["modelViewed", "m:"]].forEach(([kind, pre]) => {
+      const remote = data[kind] || {};
+      Object.keys(remote).forEach((k) => { if (!d.has(pre + k)) s[kind][k] = remote[k]; });
+    });
+    saveLocal(setId);
+    if (currentSet && currentSet.id === setId && !hwView.hidden) refreshDom(currentSet, hwBody);
+  }
+
+  const SYNC_TEXT = {
+    connecting: "Connecting to sync…",
+    synced: "Synced across your devices.",
+    saving: "Saving…",
+    local: "Saved in this browser only. Open the page on claude.ai to sync across devices.",
+    offline: "Can't reach sync right now. Your answers are saved in this browser and will sync on your next edit.",
+    full: "Sync storage is full, so new answers are saved in this browser only.",
+  };
+  function setSync(mode) {
+    syncMode = mode;
+    document.querySelectorAll(".sync-status").forEach((el) => {
+      el.textContent = SYNC_TEXT[mode];
+      el.dataset.mode = mode;
+    });
+  }
+
+  async function initSync() {
+    const c = window.claude;
+    db = c && c.use ? await c.use("db") : null;
+    if (!db) { setSync("local"); return; }
+    let migrated = false;
+    const timer = setTimeout(() => { if (syncMode === "connecting") setSync("offline"); }, 10000);
+    db.collection("answers").onSnapshot((snap) => {
+      snap.docs.forEach((d) => { if (!d.metadata.hasPendingWrites && HW[d.id]) applyRemote(d.id, d.data() || {}); });
+      if (snap.metadata.fromCache) return;
+      clearTimeout(timer);
+      if (syncMode === "connecting" || syncMode === "offline") setSync("synced");
+      if (!migrated) {
+        migrated = true;
+        const remoteIds = new Set(snap.docs.map((d) => d.id));
+        (window.ATHENA_HW || []).forEach((set) => {
+          const s = stateFor(set.id);
+          if (!remoteIds.has(set.id) && Object.keys(s.fields).length) {
+            dirty[set.id] = new Set(Object.keys(s.fields).map((k) => "f:" + k));
+          }
+          if (dirty[set.id] && dirty[set.id].size) flush(set.id);
+        });
+      }
+      if (!library.hidden) renderLibrary();
+    }, () => { clearTimeout(timer); setSync("offline"); });
+  }
+
+  async function initSample() {
+    const c = window.claude;
+    sampleFn = c && c.use ? await c.use("sample") : null;
+    document.body.classList.toggle("has-claude", !!sampleFn);
+  }
+
+  // ================================================================ library
+
+  function hwProgress(set) {
+    const s = stateFor(set.id);
+    let drafted = 0, total = 0, graded = 0;
+    set.parts.forEach((part, pi) => {
+      if (part.type !== "interview" && part.type !== "short") return;
+      part.items.forEach((_, ii) => {
+        total++;
+        const k = "p" + pi + "-" + ii;
+        if ((s.fields[k] || "").trim()) drafted++;
+        if (s.critiques[k]) graded++;
+      });
+    });
+    return { drafted, total, graded };
+  }
+
+  function renderLibrary() {
+    const toc = document.getElementById("toc");
+    toc.innerHTML = Object.entries(CHAPTERS).map(([id, ch], i) =>
+      '<li><a class="entry" href="#' + id + '"><span class="num">' + (i + 1) + '</span><div>' +
+      "<h2>" + esc(ch.title) + "</h2><p>" + esc(ch.blurb) + '</p><div class="meta">' +
+      ch.meta.map((m) => "<span>" + esc(m) + "</span>").join("") +
+      (HW["hw" + id.slice(2)] ? "<span>homework " + Number(id.slice(2)) + "</span>" : "") +
+      "</div></div></a></li>"
+    ).join("") + PLANNED.map((p) =>
+      '<li><div class="entry planned"><span class="num">' + p.num + '</span><div><h2>' + esc(p.title) +
+      "</h2><p>" + esc(p.blurb) + '</p><div class="meta"><span>' + esc(p.meta) + "</span></div></div></div></li>"
+    ).join("");
+
+    const list = document.getElementById("hw-list");
+    list.innerHTML = (window.ATHENA_HW || []).map((set) => {
+      const n = Number(set.id.slice(2));
+      const counts = set.parts.reduce((acc, p) => {
+        const k = p.type === "match" ? p.pairs.length : p.items.length;
+        acc[p.type] = (acc[p.type] || 0) + k;
+        return acc;
+      }, {});
+      const pr = hwProgress(set);
+      return '<li><a href="#' + set.id + '"><span class="n">HW ' + n + '</span><span class="t">' + esc(set.title) +
+        "<small>" + (counts.interview || 0) + " interview · " + (counts.short || 0) + " short · " +
+        ((counts.match || 0) + (counts.blank || 0) + (counts.mc || 0)) + " self-check</small></span>" +
+        '<span class="p">' + pr.drafted + "/" + pr.total + " drafted" + (pr.graded ? " · " + pr.graded + " graded" : "") + "</span></a></li>";
+    }).join("");
+  }
+
+  // ================================================================ chapters
 
   function wireChecklist(root, chapterId) {
     root.querySelectorAll(".checks input[type=checkbox]").forEach((box) => {
@@ -434,33 +825,425 @@
     });
   }
 
-  async function show() {
-    const id = location.hash.replace("#", "");
+  async function showChapter(id, section) {
     const entry = CHAPTERS[id];
-    if (!entry) {
-      chapterView.hidden = true;
-      library.hidden = false;
-      return;
-    }
+    currentSet = null;
     library.hidden = true;
+    hwView.hidden = true;
     chapterView.hidden = false;
     crumb.textContent = entry.crumb;
-    if (!cache[id]) {
-      chapterBody.innerHTML = '<p class="loading">Loading the chapter…</p>';
-      try {
-        const res = await fetch(entry.file);
-        if (!res.ok) throw new Error(res.status);
-        cache[id] = await res.text();
-      } catch (e) {
-        chapterBody.innerHTML = '<p class="failed">This chapter didn\'t load. Reload the page to try again.</p>';
-        return;
-      }
+    if (!cache[id]) chapterBody.innerHTML = '<p class="loading">Loading the chapter…</p>';
+    try {
+      chapterBody.innerHTML = await chapterHtml(id);
+    } catch (e) {
+      chapterBody.innerHTML = '<p class="failed">This chapter didn\'t load. Reload the page to try again.</p>';
+      return;
     }
-    chapterBody.innerHTML = cache[id];
     wireChecklist(chapterBody, id);
+    const target = section && document.getElementById(section);
+    if (target) target.scrollIntoView({ block: "start" });
+    else window.scrollTo(0, 0);
+  }
+
+  // ================================================================ homework rendering
+
+  function norm(s) { return String(s).toLowerCase().replace(/<[^>]*>/g, "").replace(/[\s\-_.()`'"’]/g, ""); }
+
+  const PART_HOW = {
+    match: "Pick the term that fits each definition, then check.",
+    blank: "Type the missing word or number, then check. Spelling counts; capitals and hyphens don't.",
+    mc: "Choose one answer per question, then check.",
+    short: "Write a few sentences. No key: the links show where the answer is. When you're done, ask Claude to grade it.",
+    interview: "Answer out loud first, then write the version you'd want to give. A good answer names the trade-off in both directions, a failure mode the choice doesn't protect against, and where you'd measure it. Grade yourself with the boxes, or ask Claude for a critique.",
+  };
+  const PART_LETTER = "ABCDEFG";
+
+  function keyOf(set, id) { return id.startsWith(set.id + "-") ? id.slice(set.id.length + 1) : id; }
+
+  function renderMatch(set, part, pi) {
+    const terms = part.pairs.map((p) => p[0]).slice().sort((a, b) => a.localeCompare(b));
+    const rows = part.pairs.map((pair, i) => {
+      const id = set.id + "-p" + pi + "-" + i;
+      return '<div class="item" data-i="' + i + '"><div class="match-row"><span class="q"><span class="num">' + (i + 1) + "</span>" + pair[1] +
+        '</span><select id="' + id + '" aria-label="Term for definition ' + (i + 1) + '"><option value="">Choose a term…</option>' +
+        terms.map((t) => '<option value="' + esc(t) + '">' + esc(t) + "</option>").join("") +
+        '</select></div><div class="feedback" aria-live="polite"></div></div>';
+    }).join("");
+    return '<div class="sheet">' + rows + "</div>" + actions();
+  }
+
+  function renderBlank(set, part, pi) {
+    const rows = part.items.map((it, i) => {
+      const id = set.id + "-p" + pi + "-" + i;
+      const input = '<input type="text" id="' + id + '" autocomplete="off" spellcheck="false" aria-label="Blank ' + (i + 1) + '">';
+      return '<div class="item" data-i="' + i + '"><div class="q"><span class="num">' + (i + 1) + "</span>" + it.text.replace("___", input) +
+        '</div><div class="feedback" aria-live="polite"></div></div>';
+    }).join("");
+    return '<div class="sheet">' + rows + "</div>" + actions();
+  }
+
+  function renderMC(set, part, pi) {
+    const rows = part.items.map((it, i) => {
+      const name = set.id + "-p" + pi + "-" + i;
+      return '<div class="item" data-i="' + i + '"><div class="q"><span class="num">' + (i + 1) + "</span>" + it.q + '</div><div class="opts">' +
+        it.options.map((o, oi) => '<label><input type="radio" id="' + name + "-" + oi + '" name="' + name + '" value="' + oi + '"><span>' + o + "</span></label>").join("") +
+        '</div><div class="feedback" aria-live="polite"></div></div>';
+    }).join("");
+    return '<div class="sheet">' + rows + "</div>" + actions();
+  }
+
+  function renderOpen(set, part, pi) {
+    const rows = part.items.map((it, i) => {
+      const id = set.id + "-p" + pi + "-" + i;
+      const key = "p" + pi + "-" + i;
+      let rubric = "";
+      if (part.type === "interview") {
+        rubric = '<div class="rubric">' +
+          ["Trade-off, both directions", "A failure mode it doesn't cover", "Where I'd measure it", "Bonus: a production system"]
+            .map((label, ri) => '<label><input type="checkbox" id="' + id + "-r" + ri + '"> ' + label + "</label>").join("") + "</div>";
+      }
+      return '<div class="item open-item" data-key="' + key + '" data-pi="' + pi + '" data-i="' + i + '"><div class="q"><span class="num">' + (i + 1) + "</span>" + it.q + "</div>" + refLinks(it.refs) +
+        '<textarea id="' + id + '" aria-label="Your answer to question ' + (i + 1) + '" placeholder="Your answer"></textarea>' + rubric +
+        '<div class="grade-row">' +
+          '<button type="button" class="btn small" data-act="grade">Grade my answer</button>' +
+          '<button type="button" class="btn ghost small" data-act="stuck">I\'m stuck</button>' +
+          '<span class="mv-badge" hidden>model answer viewed</span>' +
+          '<span class="grade-status" aria-live="polite"></span>' +
+        "</div>" +
+        '<div class="confirm" hidden><p>A model answer is easy to memorize instead of learn from. If you can, write something first and get a critique, then use the model answer to fill the gaps.</p>' +
+          '<div class="part-actions"><button type="button" class="btn small" data-act="model">Show the model answer</button>' +
+          '<button type="button" class="btn ghost small" data-act="cancel">Keep trying</button></div></div>' +
+        '<div class="critique" hidden></div>' +
+        '<div class="model" hidden></div>' +
+        "</div>";
+    }).join("");
+    return '<div class="sheet">' + rows + "</div>";
+  }
+
+  function actions() {
+    return '<div class="part-actions"><button type="button" class="btn" data-act="check">Check answers</button>' +
+      '<button type="button" class="btn ghost" data-act="reveal">Show answers</button><span class="score" aria-live="polite"></span></div>';
+  }
+
+  function grade(set, part, pi, partEl, reveal) {
+    let right = 0;
+    const items = partEl.querySelectorAll(".item");
+    items.forEach((itemEl, i) => {
+      const fb = itemEl.querySelector(".feedback");
+      let ok = false, ref = part.ref || "";
+      if (part.type === "match") {
+        const sel = itemEl.querySelector("select");
+        const key = part.pairs[i][0];
+        if (reveal) { sel.value = key; setField(set.id, keyOf(set, sel.id), key); }
+        ok = sel.value === key;
+      } else if (part.type === "blank") {
+        const it = part.items[i];
+        const inp = itemEl.querySelector("input");
+        ref = it.ref;
+        if (reveal) { inp.value = it.answers[0]; setField(set.id, keyOf(set, inp.id), inp.value); }
+        ok = it.answers.some((a) => norm(a) === norm(inp.value));
+      } else if (part.type === "mc") {
+        const it = part.items[i];
+        ref = it.ref;
+        if (reveal) {
+          const r = itemEl.querySelector('input[value="' + it.answer + '"]');
+          r.checked = true;
+          setField(set.id, keyOf(set, r.name), String(it.answer));
+        }
+        const picked = itemEl.querySelector("input:checked");
+        ok = !!picked && Number(picked.value) === it.answer;
+        itemEl.querySelectorAll(".opts label").forEach((lab, oi) => {
+          lab.classList.toggle("right", oi === it.answer && (ok || reveal));
+          lab.classList.toggle("wrong", !!picked && Number(picked.value) === oi && oi !== it.answer);
+        });
+      }
+      if (ok) right++;
+      itemEl.classList.toggle("is-right", ok);
+      itemEl.classList.toggle("is-wrong", !ok);
+      const where = ref ? ' <a href="#' + ref + '">' + refLabel(ref) + "</a>" : "";
+      if (ok) {
+        fb.className = "feedback ok";
+        fb.innerHTML = (reveal ? "Answer shown." : "Correct.") + where;
+      } else {
+        fb.className = "feedback bad";
+        fb.innerHTML = (part.type === "mc" ? "Not quite." : "Not yet.") + " Reread" + where + ", then try again.";
+      }
+    });
+    partEl.querySelector(".score").textContent = reveal ? "" : right + " / " + items.length + " correct";
+  }
+
+  // Fill every control from STATE. `skipFocused` leaves the field being typed in alone.
+  function refreshDom(set, root, skipFocused = true) {
+    const s = stateFor(set.id);
+    const active = document.activeElement;
+    root.querySelectorAll("select, input[type=text], textarea").forEach((el) => {
+      if (skipFocused && el === active) return;
+      const v = s.fields[keyOf(set, el.id)];
+      if (v !== undefined && el.value !== v) el.value = v;
+    });
+    root.querySelectorAll(".opts").forEach((opts) => {
+      const first = opts.querySelector("input[type=radio]");
+      if (!first) return;
+      const v = s.fields[keyOf(set, first.name)];
+      if (v === undefined) return;
+      const r = opts.querySelector('input[value="' + v + '"]');
+      if (r) r.checked = true;
+    });
+    root.querySelectorAll(".rubric input").forEach((box) => {
+      const v = s.fields[keyOf(set, box.id)];
+      if (v !== undefined) box.checked = v === "1";
+    });
+    root.querySelectorAll(".open-item").forEach((itemEl) => renderCritique(set, itemEl));
+  }
+
+  function showHomework(id) {
+    const set = HW[id];
+    currentSet = set;
+    library.hidden = true;
+    chapterView.hidden = true;
+    hwView.hidden = false;
+    const n = Number(id.slice(2));
+    hwCrumb.textContent = "Homework " + n + " · Chapter " + n;
+
+    const counts = set.parts.filter((p) => p.type === "interview").reduce((a, p) => a + p.items.length, 0);
+    let html = '<article class="hw"><header><p class="eyebrow">Homework ' + n + "</p><h1>" + esc(set.title) + "</h1>" +
+      '<p class="lede">Covers <a href="#' + set.chapter + '">Chapter ' + n + "</a>. Work through the self-check parts first, " +
+      "then the open questions. " + counts + " interview question" + (counts === 1 ? "" : "s") + " from the question bank are at the end.</p>" +
+      '<p class="sync-status" aria-live="polite" data-mode="' + syncMode + '">' + SYNC_TEXT[syncMode] + "</p></header>";
+
+    set.parts.forEach((part, pi) => {
+      html += '<section class="hw-part" data-pi="' + pi + '"><h2><span class="sec">Part ' + PART_LETTER[pi] + "</span>" + esc(part.title) + "</h2>" +
+        '<p class="how">' + PART_HOW[part.type] + "</p>";
+      if (part.type === "match") html += renderMatch(set, part, pi);
+      else if (part.type === "blank") html += renderBlank(set, part, pi);
+      else if (part.type === "mc") html += renderMC(set, part, pi);
+      else html += renderOpen(set, part, pi);
+      html += "</section>";
+    });
+
+    const prev = HW["hw" + String(n - 1).padStart(2, "0")];
+    const next = HW["hw" + String(n + 1).padStart(2, "0")];
+    html += '<nav class="hw-nav" aria-label="Other homework">' +
+      (prev ? '<a href="#' + prev.id + '">&larr; Homework ' + (n - 1) + "</a>" : "<span></span>") +
+      (next ? '<a href="#' + next.id + '">Homework ' + (n + 1) + " &rarr;</a>" : "<span></span>") + "</nav></article>";
+
+    hwBody.innerHTML = html;
+    refreshDom(set, hwBody, false);
+
+    hwBody.querySelectorAll(".hw-part").forEach((partEl) => {
+      const pi = Number(partEl.dataset.pi);
+      const part = set.parts[pi];
+      partEl.querySelectorAll("[data-act=check], [data-act=reveal]").forEach((btn) => {
+        btn.addEventListener("click", () => grade(set, part, pi, partEl, btn.dataset.act === "reveal"));
+      });
+      partEl.querySelectorAll("select").forEach((el) => el.addEventListener("change", () => setField(set.id, keyOf(set, el.id), el.value)));
+      partEl.querySelectorAll("input[type=text], textarea").forEach((el) => el.addEventListener("input", () => setField(set.id, keyOf(set, el.id), el.value)));
+      partEl.querySelectorAll("input[type=radio]").forEach((el) => el.addEventListener("change", () => setField(set.id, keyOf(set, el.name), el.value)));
+      partEl.querySelectorAll(".rubric input").forEach((el) => el.addEventListener("change", () => setField(set.id, keyOf(set, el.id), el.checked ? "1" : "0")));
+      partEl.querySelectorAll(".open-item").forEach((itemEl) => wireOpenItem(set, part, itemEl));
+    });
     window.scrollTo(0, 0);
+  }
+
+  // ================================================================ grading with Claude
+
+  function hashText(t) {
+    let h = 5381;
+    for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+    return String(h >>> 0);
+  }
+
+  async function refText(ref) {
+    const m = /^(ch\d\d)(?:-(s\d+))?$/.exec(ref);
+    if (!m || !CHAPTERS[m[1]]) return "";
+    const doc = new DOMParser().parseFromString(await chapterHtml(m[1]), "text/html");
+    doc.querySelectorAll("svg").forEach((s) => s.remove());
+    const node = m[2] ? doc.getElementById(m[2]) : doc.querySelector("article");
+    const text = (node ? node.textContent : "").replace(/\s+/g, " ").trim();
+    return "[" + refLabel(ref) + "] " + text.slice(0, 9000);
+  }
+
+  function plain(html) { return String(html).replace(/<[^>]*>/g, "").replace(/&ldquo;|&rdquo;/g, '"').replace(/&mdash;/g, "—").replace(/&le;/g, "≤").replace(/&lambda;/g, "λ").replace(/&amp;/g, "&").replace(/&[a-z]+;/g, " "); }
+
+  const CONTEXT =
+    "The person answering is Angie, an experienced backend and systems engineer preparing for staff-level " +
+    "distributed-systems interviews. As self-directed study she is building Athenas, a Go telemetry service " +
+    "(HTTP ingest with 202 Accepted, an in-memory bounded queue with worker goroutines, an in-memory store, " +
+    "later SQS, a Postgres outbox, Kafka, Kubernetes and Redis). The reference notes below were written for her " +
+    "and record her real design decisions.";
+
+  const STANDARD =
+    "The standard for a strong interview answer: (1) names the trade-off in both directions, what the choice buys " +
+    "and what it costs; (2) names a failure mode the choice does NOT protect against; (3) says where it would be " +
+    "measured (a metric, a test, a signal); (4) bonus: names a production system that made the same call. " +
+    "A definition is not an answer. \"It depends\" without naming what it depends on is not an answer.";
+
+  function gradePrompt(kind, question, answer, notes) {
+    return CONTEXT + "\n\n" +
+      "Grade her written answer like a demanding interviewer. Do not soften a weak answer.\n" +
+      (kind === "interview"
+        ? STANDARD + "\n"
+        : "This is a short-answer study question, not an interview question: grade correctness and completeness against the reference notes. Mark the four-part standard false where it doesn't apply.\n") +
+      "\nRules for your feedback:\n" +
+      "- Never write a model answer or sentences she could copy. Describe each gap as a concept to go and find, not as finished prose.\n" +
+      "- Name the reference section label (for example \"Ch 4 §5\") that covers each gap.\n" +
+      "- Judge against the reference notes; credit correct points that go beyond them.\n" +
+      "- One sentence per list item. At most four strengths and five gaps.\n\n" +
+      "QUESTION:\n" + question + "\n\nHER ANSWER:\n" + answer + "\n\nREFERENCE NOTES:\n" + notes + "\n\n" +
+      "Reply with only a JSON object of this shape:\n" +
+      '{"verdict": "strong" | "adequate" | "weak" | "off-target", "summary": "one sentence", ' +
+      '"standard": {"tradeoff": true|false, "failure_mode": true|false, "measurement": true|false, "production_system": true|false}, ' +
+      '"strengths": ["..."], "gaps": ["..."], "follow_up": "the next question an interviewer would ask, given this answer"}';
+  }
+
+  function modelPrompt(kind, question, notes) {
+    return CONTEXT + "\n\n" +
+      "She is stuck on the question below. Write a strong answer as she would say it out loud in an interview: " +
+      "first person, about her own project where relevant, grounded in the reference notes. 150 to 250 words of " +
+      "plain prose, no headings or lists. " + (kind === "interview" ? STANDARD : "Be correct and complete against the reference notes.") +
+      "\n\nQUESTION:\n" + question + "\n\nREFERENCE NOTES:\n" + notes;
+  }
+
+  const VERDICT_LABEL = { strong: "Strong", adequate: "Adequate", weak: "Weak", "off-target": "Off target" };
+  const STD_LABEL = [["tradeoff", "Trade-off both ways"], ["failure_mode", "Failure mode"], ["measurement", "Where to measure"], ["production_system", "Production system"]];
+
+  function list(items) { return "<ul>" + (Array.isArray(items) ? items : []).map((t) => "<li>" + esc(t) + "</li>").join("") + "</ul>"; }
+
+  function renderCritique(set, itemEl) {
+    const key = itemEl.dataset.key;
+    const s = stateFor(set.id);
+    const c = s.critiques[key];
+    const box = itemEl.querySelector(".critique");
+    itemEl.querySelector(".mv-badge").hidden = !s.modelViewed[key];
+    if (!c) { box.hidden = true; box.innerHTML = ""; return; }
+    const kind = set.parts[Number(itemEl.dataset.pi)].type;
+    const current = (s.fields[key] || "").trim();
+    const stale = c.answerHash && c.answerHash !== hashText(current);
+    const v = VERDICT_LABEL[c.verdict] ? c.verdict : "weak";
+    box.innerHTML =
+      '<div class="crit-head"><span class="verdict v-' + v + '">' + VERDICT_LABEL[v] + '</span><span class="crit-sum">' + esc(c.summary || "") + "</span></div>" +
+      (kind === "interview" && c.standard
+        ? '<div class="std">' + STD_LABEL.map(([k, label]) => '<span class="std-chip ' + (c.standard[k] ? "yes" : "no") + '">' + (c.standard[k] ? "✓ " : "✗ ") + label + "</span>").join("") + "</div>"
+        : "") +
+      ((c.strengths || []).length ? "<h4>What's working</h4>" + list(c.strengths) : "") +
+      ((c.gaps || []).length ? "<h4>What's missing</h4>" + list(c.gaps) : "") +
+      (c.follow_up ? '<p class="follow"><b>Next question an interviewer would ask:</b> ' + esc(c.follow_up) + "</p>" : "") +
+      '<p class="crit-meta">' + (stale ? "Graded against an earlier version of your answer. Grade again to check the rewrite. · " : "") +
+      "Graded " + esc((c.at || "").slice(0, 10)) + "</p>";
+    box.hidden = false;
+  }
+
+  function sampleErrorText(e) {
+    const code = e && e.code;
+    if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].includes(code)) {
+      document.body.classList.remove("has-claude");
+      return "Grading with Claude isn't available here.";
+    }
+    if (code === "rate_limited") return "Too many requests right now. Try again in a minute.";
+    if (code === "session_expired") return "Your Claude session expired. Sign in again, then retry.";
+    if (code === "invalid_json") return "The grade came back garbled. Try again.";
+    if (code === "refused" || code === "empty_completion") return "Claude didn't return a grade for this one. Edit the answer and try again.";
+    if (code === "prompt_too_large") return "This answer is too long to grade. Shorten it and try again.";
+    if (code === "cancelled") return "";
+    return "Couldn't reach Claude. Try again.";
+  }
+
+  function wireOpenItem(set, part, itemEl) {
+    const key = itemEl.dataset.key;
+    const item = part.items[Number(itemEl.dataset.i)];
+    const status = itemEl.querySelector(".grade-status");
+    const confirmBox = itemEl.querySelector(".confirm");
+    const modelBox = itemEl.querySelector(".model");
+    const gradeBtn = itemEl.querySelector("[data-act=grade]");
+    let busy = false;
+
+    const notesFor = async () => (await Promise.all(item.refs.map(refText))).join("\n\n");
+
+    gradeBtn.addEventListener("click", async () => {
+      if (busy || !sampleFn) return;
+      const answer = (stateFor(set.id).fields[key] || "").trim();
+      if (answer.length < 20) { status.textContent = "Write an answer first, then ask for a grade."; return; }
+      busy = true;
+      gradeBtn.disabled = true;
+      status.textContent = "Grading… this can take up to a minute.";
+      try {
+        const notes = await notesFor();
+        const res = await sampleFn.json(gradePrompt(part.type, plain(item.q), answer, notes), { modelTier: "default" });
+        if (!res || typeof res !== "object") throw { code: "invalid_json" };
+        const s = stateFor(set.id);
+        s.critiques[key] = {
+          verdict: String(res.verdict || ""),
+          summary: String(res.summary || ""),
+          standard: res.standard && typeof res.standard === "object" ? {
+            tradeoff: !!res.standard.tradeoff, failure_mode: !!res.standard.failure_mode,
+            measurement: !!res.standard.measurement, production_system: !!res.standard.production_system,
+          } : null,
+          strengths: (Array.isArray(res.strengths) ? res.strengths : []).slice(0, 6).map(String),
+          gaps: (Array.isArray(res.gaps) ? res.gaps : []).slice(0, 6).map(String),
+          follow_up: String(res.follow_up || ""),
+          answerHash: hashText(answer),
+          at: new Date().toISOString(),
+        };
+        markDirty(set.id, "c:" + key);
+        renderCritique(set, itemEl);
+        status.textContent = "";
+      } catch (e) {
+        status.textContent = sampleErrorText(e);
+      }
+      busy = false;
+      gradeBtn.disabled = false;
+    });
+
+    itemEl.querySelector("[data-act=stuck]").addEventListener("click", () => { confirmBox.hidden = false; });
+    itemEl.querySelector("[data-act=cancel]").addEventListener("click", () => { confirmBox.hidden = true; });
+
+    itemEl.querySelector("[data-act=model]").addEventListener("click", async () => {
+      if (busy || !sampleFn) return;
+      busy = true;
+      confirmBox.hidden = true;
+      modelBox.hidden = false;
+      modelBox.innerHTML = '<p class="model-label">Model answer</p><p class="model-text">Thinking…</p>';
+      const textEl = modelBox.querySelector(".model-text");
+      try {
+        const notes = await notesFor();
+        const res = await sampleFn(modelPrompt(part.type, plain(item.q), notes), {
+          modelTier: "default",
+          onText: (u) => { textEl.textContent = u.text; },
+        });
+        textEl.textContent = res.text;
+        modelBox.insertAdjacentHTML("beforeend",
+          '<p class="crit-meta">Close this, then rewrite your answer in your own words and grade it.</p>' +
+          '<div class="part-actions"><button type="button" class="btn ghost small" data-act="hide-model">Hide the model answer</button></div>');
+        modelBox.querySelector("[data-act=hide-model]").addEventListener("click", () => { modelBox.hidden = true; modelBox.innerHTML = ""; });
+        const s = stateFor(set.id);
+        if (!s.modelViewed[key]) { s.modelViewed[key] = true; markDirty(set.id, "m:" + key); }
+        itemEl.querySelector(".mv-badge").hidden = false;
+      } catch (e) {
+        if (e && e.code === "refused") textEl.textContent = "";
+        const msg = sampleErrorText(e);
+        if (msg) textEl.textContent = (e && e.text ? e.text + "\n\n" : "") + msg;
+        else { modelBox.hidden = true; modelBox.innerHTML = ""; }
+      }
+      busy = false;
+    });
+  }
+
+  // ================================================================ router
+
+  function show() {
+    const hash = location.hash.replace("#", "");
+    const ch = /^(ch\d\d)(?:-(s\d+))?$/.exec(hash);
+    if (ch && CHAPTERS[ch[1]]) return showChapter(ch[1], ch[2]);
+    if (HW[hash]) return showHomework(hash);
+    currentSet = null;
+    chapterView.hidden = true;
+    hwView.hidden = true;
+    library.hidden = false;
+    renderLibrary();
   }
 
   window.addEventListener("hashchange", show);
   show();
+  initSync();
+  initSample();
 </script>

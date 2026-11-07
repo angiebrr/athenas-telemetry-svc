@@ -1,0 +1,214 @@
+<div class="chapter-root">
+<article class="chapter">
+
+  <header>
+    <p class="eyebrow">Chapter 10 &middot; Milestones 3&ndash;7, previewed</p>
+    <h1>The Road Ahead: Delivery to DORA</h1>
+    <p class="lede">
+      One section per remaining milestone, each built around the questions it will be asked about.
+      This is a map, not the territory: each milestone will get its own full chapter when it opens.
+      The point now is to see that every one of them is Chapter 1's queue again, at a larger scale.
+    </p>
+  </header>
+
+  <nav class="contents" aria-label="Sections">
+    <p class="eyebrow">In this chapter</p>
+    <ol>
+      <li><button type="button" data-jump="s1"><span>1</span>M3 &middot; Delivery guarantees</button></li>
+      <li><button type="button" data-jump="s2"><span>2</span>M4 &middot; Outbox instead of 2PC</button></li>
+      <li><button type="button" data-jump="s3"><span>3</span>M5 &middot; Partitions, lag, rebalancing</button></li>
+      <li><button type="button" data-jump="s4"><span>4</span>M6 &middot; Linearizable rate limits</button></li>
+      <li><button type="button" data-jump="s5"><span>5</span>M7 &middot; The four keys</button></li>
+      <li><button type="button" data-jump="s6"><span>6</span>Homework</button></li>
+    </ol>
+  </nav>
+
+  <div class="callout read">
+    <h3>Read first (when each milestone opens, not now)</h3>
+    <ul>
+      <li>M3: the Amazon SQS developer guide on <a href="https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html" target="_blank" rel="noopener">visibility timeout</a> and <a href="https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html" target="_blank" rel="noopener">dead-letter queues</a>.</li>
+      <li>M4: Chris Richardson, <a href="https://microservices.io/patterns/data/transactional-outbox.html" target="_blank" rel="noopener">&ldquo;Transactional outbox&rdquo;</a>.</li>
+      <li>M5: Kleppmann, <em>Designing Data-Intensive Applications</em> ch. 11 (stream processing); the Kafka docs on consumer groups.</li>
+      <li>M6: Kleppmann ch. 9 (consistency and consensus), the linearizability section.</li>
+      <li>M7: <a href="https://dora.dev/guides/dora-metrics-four-keys/" target="_blank" rel="noopener">dora.dev, &ldquo;DORA's software delivery metrics&rdquo;</a>.</li>
+    </ul>
+  </div>
+
+  <!-- ================================================================ -->
+  <section id="s1">
+    <h2><span class="sec">&sect;1</span>M3 &middot; Delivery guarantees</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Guarantee</th><th>Means</th><th>How you get it</th></tr></thead>
+        <tbody>
+          <tr><td>At-most-once</td><td>Delivered once or not at all. Never duplicated.</td><td>Never retry. (Athenas today.)</td></tr>
+          <tr><td>At-least-once</td><td>Delivered one or more times. Never lost (within limits).</td><td>Retry until acknowledged. Duplicates happen when the ack is lost.</td></tr>
+          <tr><td>Exactly-once</td><td>The effect happens once.</td><td>At-least-once delivery <em>plus</em> idempotent processing.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>Why exactly-once is a property of the consumer:</strong> over an unreliable network, a sender
+      can't know whether a message whose acknowledgement was lost actually arrived (the Two Generals
+      problem). So it has to choose: resend (risk a duplicate) or don't (risk a loss). Real systems choose
+      resend and make the <em>receiver</em> idempotent, so a duplicate has no extra effect. That's often
+      called &ldquo;effectively once&rdquo;.
+    </p>
+    <p>
+      <strong>Why consumers must be idempotent:</strong> SQS standard queues deliver at least once, and
+      occasionally deliver a message twice even without failures. Idempotency usually comes from a natural
+      key: an upsert on (device ID, timestamp) stores a duplicate reading once. Or keep a table of
+      processed message IDs.
+    </p>
+    <p>
+      <strong>What a visibility timeout buys:</strong> when a consumer receives a message, SQS hides it from
+      other consumers for the visibility timeout. If the consumer deletes it in time, it's done. If the
+      consumer crashes, the message reappears and someone else gets it. That's automatic retry after a
+      crash without any locks or coordination between consumers. The cost: the timeout must be longer than
+      processing time, or a slow-but-healthy consumer's message reappears and is processed twice (a consumer
+      can extend it with <code>ChangeMessageVisibility</code>). After too many receives
+      (<code>maxReceiveCount</code>), a redrive policy moves the message to a <strong>dead-letter queue</strong>
+      so one bad message can't block or loop forever.
+    </p>
+    <p>
+      FIFO queues add ordering per message group and deduplication within a 5-minute window, at the cost of
+      lower throughput limits. Your Chapter 1 &sect;5 decision (no order through the pipeline, sort on read)
+      means standard queues are fine.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s2">
+    <h2><span class="sec">&sect;2</span>M4 &middot; Outbox instead of two-phase commit</h2>
+    <p>
+      The problem: write a row to Postgres <em>and</em> publish an event, so that both happen or neither
+      does. Writing then publishing can crash in between (row, no event). Publishing then writing can crash
+      too (event, no row).
+    </p>
+    <p>
+      <strong>Two-phase commit (2PC):</strong> a coordinator asks every participant to <em>prepare</em>
+      (promise it can commit), and only if all agree tells them to <em>commit</em>. Why not:
+    </p>
+    <ul>
+      <li>Every participant must support it (XA). Message brokers like SQS and Kafka don't take part as XA resources.</li>
+      <li>It's <strong>blocking</strong>: if the coordinator fails after participants prepare, they hold locks and wait, unable to decide on their own.</li>
+      <li>Latency and availability: every transaction waits on the slowest participant, and any participant being down stops all writes.</li>
+    </ul>
+    <p>
+      <strong>The transactional outbox:</strong> in one <em>local</em> transaction, write the telemetry row
+      and an outbox row describing the event. Postgres guarantees both or neither. A separate relay polls the
+      outbox (or reads the database's change log, as Debezium does), publishes each event, and marks it sent.
+    </p>
+    <p><strong>What it costs you in exchange for atomicity:</strong></p>
+    <ul>
+      <li><strong>At-least-once publishing:</strong> the relay can publish and crash before marking the row sent, so it publishes again. Consumers must be idempotent (&sect;1).</li>
+      <li><strong>Publish latency:</strong> up to one poll interval.</li>
+      <li><strong>Database load:</strong> an extra write per event, polling queries, and a table that needs cleanup.</li>
+      <li><strong>Ordering</strong> across relays needs care.</li>
+    </ul>
+    <p>
+      It also closes Chapter 1 &sect;6's crash window: the <code>202</code> can go out after a durable write.
+      The outbox is a durable queue drained by workers, which is Chapter 1 again.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s3">
+    <h2><span class="sec">&sect;3</span>M5 &middot; Partitions, lag, rebalancing</h2>
+    <p>
+      A Kafka topic is split into <strong>partitions</strong>, each an ordered, append-only log. A record's
+      key is hashed to pick its partition. Within a consumer group, each partition is read by at most one
+      consumer.
+    </p>
+    <p>
+      <strong>Partition ordering vs. throughput:</strong> order is guaranteed only <em>within</em> a
+      partition. More partitions mean more consumers can work in parallel, so more throughput, but no order
+      across partitions. A group's parallelism is capped at its partition count. Keying by device keeps each
+      device's records in order (Chapter 1's Fig 1.4, right side), with the same hot-partition risk if one key
+      is very busy.
+    </p>
+    <p>
+      <strong>Consumer lag</strong> is, per partition, the latest offset in the log minus the consumer
+      group's committed offset: how many records are waiting. It's queue depth. Lag that keeps growing means
+      consumers are slower than producers, the M2 question again. Because Kafka keeps the backlog on disk,
+      lag costs freshness rather than data, until retention deletes records nobody has read.
+    </p>
+    <p>
+      <strong>Why rebalancing is the hard part:</strong> when a consumer joins, leaves, or is presumed dead,
+      partitions are reassigned. With the classic &ldquo;eager&rdquo; protocol, every consumer stops and gives
+      up all its partitions while the group reorganizes, so a deploy that restarts consumers one by one causes
+      repeated pauses. Work that was processed but not yet committed is processed again by the new owner, so
+      duplicates appear. A consumer that takes too long between polls is presumed dead and triggers a
+      rebalance itself. Mitigations exist: cooperative (incremental) rebalancing, static membership, and
+      Kafka's newer consumer group protocol, which moves assignment to the broker.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s4">
+    <h2><span class="sec">&sect;4</span>M6 &middot; Linearizable rate-limit state</h2>
+    <p>
+      <strong>Linearizable</strong> means every operation appears to take effect at a single instant
+      between when it was called and when it returned, and all clients see operations in an order that's
+      consistent with real time. It behaves like one copy of the data, even if there are several.
+    </p>
+    <p>
+      For a global rate limit across pods, that's what makes the limit exact: if the counter is at 99 of
+      100, two pods can't both see 99 and both admit a request. Redis executes commands one at a time, so
+      an <code>INCR</code> with an expiry, or a Lua script for a multi-step token bucket, is atomic on a
+      single primary. (Caveat for an audit: Redis replication is asynchronous, so a failover can lose recent
+      increments. It's linearizable on one node, not across failover.)
+    </p>
+    <p><strong>Why coordination is expensive:</strong></p>
+    <ul>
+      <li><strong>Latency:</strong> every request now waits on a network round trip to Redis.</li>
+      <li><strong>Availability:</strong> if Redis is unreachable, you have to choose to fail open (no limits) or fail closed (refuse traffic).</li>
+      <li><strong>Contention:</strong> a hot key for a busy client serializes on one Redis node.</li>
+    </ul>
+    <p>
+      The alternative is to coordinate less: each pod enforces a local share of the limit and syncs
+      occasionally. That's cheaper and more available, but approximate. It's the same consistency-for-cost
+      trade that runs through the whole curriculum. This is also where the <code>429</code> from Chapter 1
+      &sect;4 finally arrives.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s5">
+    <h2><span class="sec">&sect;5</span>M7 &middot; The four keys</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Metric</th><th>Measures</th><th>Kind</th></tr></thead>
+        <tbody>
+          <tr><td>Deployment frequency</td><td>How often you deploy to production.</td><td>Throughput</td></tr>
+          <tr><td>Lead time for changes</td><td>Time from commit to running in production.</td><td>Throughput</td></tr>
+          <tr><td>Change failure rate</td><td>Fraction of deployments that cause a failure needing remediation.</td><td>Stability</td></tr>
+          <tr><td>Time to restore service</td><td>How long it takes to recover from a failed deployment or incident.</td><td>Stability</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      (Recent DORA reports rename the last one &ldquo;failed deployment recovery time&rdquo; and add a fifth,
+      rework rate. Know the four; mention the update.)
+    </p>
+    <p>
+      <strong>What counts as a successful deploy</strong> is a definition you have to choose and write down,
+      or the numbers are meaningless. A reasonable one: the change reached production and didn't need a
+      rollback, hotfix, or fix-forward within some window. A pipeline that went green isn't enough on its own.
+    </p>
+    <p>
+      <strong>Which two need incident data:</strong> change failure rate and time to restore. Deployment
+      frequency and lead time come straight from git and the CI/CD system. The stability metrics need to know
+      which deploys caused failures and when service came back, which means linking incidents to deploys.
+      That's the part most teams can't automate, and the reason M7 is about observability as much as pipelines.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s6">
+    <h2><span class="sec">&sect;6</span>Homework</h2>
+    <p><a href="#hw10">Homework 10</a> covers this chapter.</p>
+  </section>
+
+</article>
+</div>

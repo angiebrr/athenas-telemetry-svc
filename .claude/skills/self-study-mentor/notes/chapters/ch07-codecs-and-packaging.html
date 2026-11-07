@@ -1,0 +1,187 @@
+<div class="chapter-root">
+<article class="chapter">
+
+  <header>
+    <p class="eyebrow">Chapter 7 &middot; Video track, week 1</p>
+    <h1>Video I: Codecs, GOPs, and Containers</h1>
+    <p class="lede">
+      Before any protocol matters, video has to get roughly two hundred times smaller. This chapter
+      covers how a codec does that, why keyframes drive nearly every operational trade-off, the
+      difference between a codec and a container, and when a server has to transcode.
+    </p>
+  </header>
+
+  <nav class="contents" aria-label="Sections">
+    <p class="eyebrow">In this chapter</p>
+    <ol>
+      <li><button type="button" data-jump="s1"><span>1</span>Why compression is the whole game</button></li>
+      <li><button type="button" data-jump="s2"><span>2</span>Frame types and the GOP</button></li>
+      <li><button type="button" data-jump="s3"><span>3</span>What keyframe interval decides</button></li>
+      <li><button type="button" data-jump="s4"><span>4</span>Codec vs. container</button></li>
+      <li><button type="button" data-jump="s5"><span>5</span>Transcode vs. transmux</button></li>
+      <li><button type="button" data-jump="s6"><span>6</span>Choosing a codec for a battery camera</button></li>
+      <li><button type="button" data-jump="s7"><span>7</span>Homework</button></li>
+    </ol>
+  </nav>
+
+  <div class="callout read">
+    <h3>Read first</h3>
+    <ul>
+      <li><a href="https://howvideo.works/" target="_blank" rel="noopener">HowVideo.works</a>. The whole pipeline in one sitting.</li>
+      <li><a href="https://github.com/leandromoreira/digital_video_introduction" target="_blank" rel="noopener">Digital Video Introduction</a>, through the H.264 section and &ldquo;online streaming&rdquo;. Do the ffmpeg exercises.</li>
+    </ul>
+  </div>
+
+  <!-- ================================================================ -->
+  <section id="s1">
+    <h2><span class="sec">&sect;1</span>Why compression is the whole game</h2>
+    <p>
+      Raw 1080p at 30 frames per second, 8-bit with 4:2:0 chroma subsampling (1.5 bytes per pixel):
+      1920 &times; 1080 &times; 1.5 &times; 30 &asymp; 93 MB/s, or about 750 Mbit/s. A home uplink might
+      be 10&ndash;20 Mbit/s. A good H.264 encode of the same video is around 2&ndash;6 Mbit/s, so the codec
+      is doing roughly a 150&ndash;300&times; reduction.
+    </p>
+    <p>
+      It gets there with two kinds of prediction: <strong>intra</strong> (predict a block from its
+      neighbours in the same frame) and <strong>inter</strong> (predict a block from a similar block in
+      another frame, plus a motion vector). Then it transforms the leftover error, quantizes it (the lossy
+      step, where bitrate is traded for quality), and entropy-codes the result.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s2">
+    <h2><span class="sec">&sect;2</span>Frame types and the GOP</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Frame</th><th>Predicted from</th><th>Size</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>I (intra, keyframe)</td><td>Nothing outside itself</td><td>Largest, often several times a P-frame</td><td>Decodable on its own. In H.264, an <strong>IDR</strong> frame is an I-frame that also tells the decoder to discard earlier references, so decoding can start cleanly there.</td></tr>
+          <tr><td>P (predicted)</td><td>Earlier frames</td><td>Small</td><td>Depends on its references. If one is lost, errors carry forward.</td></tr>
+          <tr><td>B (bi-predicted)</td><td>Earlier and later frames</td><td>Smallest</td><td>Needs a future frame first, so frames are encoded out of display order. That reordering adds latency, which is why real-time WebRTC encoders generally don't use B-frames.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      A <strong>GOP</strong> (group of pictures) runs from one keyframe to the next. The
+      <strong>keyframe interval</strong> (GOP length) is usually given in frames or seconds: a 2-second
+      GOP at 30 fps is 60 frames.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s3">
+    <h2><span class="sec">&sect;3</span>What keyframe interval decides</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Concern</th><th>Short GOP (frequent keyframes)</th><th>Long GOP (rare keyframes)</th></tr></thead>
+        <tbody>
+          <tr><td>Join time</td><td>Fast. A new viewer can only start decoding at a keyframe, so it waits up to one GOP.</td><td>Slow. A viewer may stare at a blank player for seconds.</td></tr>
+          <tr><td>Seek</td><td>Precise. Playback can only start cleanly at a keyframe.</td><td>Coarse, or the player must decode from an earlier keyframe.</td></tr>
+          <tr><td>Bandwidth</td><td>Higher. Keyframes are expensive.</td><td>Lower for the same quality.</td></tr>
+          <tr><td>Recovery after loss</td><td>Fast. A corrupted reference only lasts until the next keyframe.</td><td>Slow, unless the receiver asks for a keyframe (PLI/FIR, Chapter 8 &sect;5).</td></tr>
+          <tr><td>Segmenting (HLS)</td><td>Segments must start on a keyframe, so the GOP has to divide the segment length.</td><td>Forces long segments, which means more latency.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      WebRTC usually runs very long or open-ended GOPs and sends a keyframe <em>on request</em> when a
+      viewer joins or loses packets. HLS needs a fixed, regular keyframe interval aligned to segment
+      boundaries. A camera serving both has to satisfy both.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s4">
+    <h2><span class="sec">&sect;4</span>Codec vs. container</h2>
+    <p>
+      A <strong>codec</strong> defines the compressed bitstream: H.264, HEVC, VP8, VP9, AV1 for video;
+      AAC, Opus for audio. A <strong>container</strong> wraps one or more of those streams with timestamps,
+      track information, and often an index. The same H.264 stream can sit in different containers, and
+      changing the container doesn't touch the compressed video.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Container</th><th>Shape</th><th>Where you'll meet it</th></tr></thead>
+        <tbody>
+          <tr><td>MPEG-TS</td><td>A stream of fixed 188-byte packets, designed for broadcast. Survives truncation and joins mid-stream.</td><td>Classic HLS segments (<code>.ts</code>).</td></tr>
+          <tr><td>Fragmented MP4 (fMP4 / CMAF)</td><td>An init segment, then self-contained fragments.</td><td>Modern HLS and DASH, and Low-Latency HLS.</td></tr>
+          <tr><td>MKV (Matroska)</td><td>Flexible, block-based, streamable.</td><td>Kinesis Video Streams stores media as MKV fragments.</td></tr>
+          <tr><td>IVF</td><td>A minimal header plus length-prefixed frames.</td><td>VP8/VP9 frames on disk; Pion's <code>save-to-disk</code> writes VP8 to IVF (and Opus to Ogg).</td></tr>
+          <tr><td>Plain MP4</td><td>Its index (the <code>moov</code> box) is often written at the end of the file.</td><td>Downloads and clips. Dangerous for recording, below.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>Why the container matters for recording:</strong> a recorder can crash. A plain MP4 whose
+      index would have been written at the end is unplayable if the writer dies first, so a 10-minute
+      recording becomes zero minutes. Streaming containers (MPEG-TS, fMP4, MKV) are written as independent
+      pieces, so a crash only loses the last piece. That's the same at-most-once thinking as Chapter 1,
+      applied to files.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s5">
+    <h2><span class="sec">&sect;5</span>Transcode vs. transmux</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th></th><th>Transmux (<code>ffmpeg -c copy</code>)</th><th>Transcode (for example <code>-c:v libx264</code>)</th></tr></thead>
+        <tbody>
+          <tr><td>What happens</td><td>Unwrap from one container, rewrap in another. The compressed frames are unchanged.</td><td>Decode to raw frames, then encode again.</td></tr>
+          <tr><td>CPU per stream</td><td>Close to zero. It's I/O.</td><td>A real share of a core per stream, or a GPU.</td></tr>
+          <tr><td>Latency added</td><td>Negligible.</td><td>Encoder buffering, often hundreds of milliseconds or more.</td></tr>
+          <tr><td>Quality</td><td>Identical.</td><td>Generation loss: each lossy encode degrades it a little.</td></tr>
+          <tr><td>What it enables</td><td>Changing protocol or packaging.</td><td>Changing codec, resolution, or bitrate; building an adaptive-bitrate ladder.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Designing a fleet so the server rarely transcodes</h3>
+    <ul>
+      <li><strong>Encode once, in a codec every viewer can play.</strong> Have cameras produce H.264 at a profile browsers and HLS players accept. Then live (WebRTC) and recorded (HLS) are both transmux operations.</li>
+      <li><strong>Negotiate the codec, don't convert it.</strong> In WebRTC, offer H.264 in SDP so the browser doesn't pick VP8 (the spike's decision).</li>
+      <li><strong>Get multiple qualities from the source.</strong> Simulcast (the camera sends two or three encodings) or scalable coding lets a server pick a layer per viewer, instead of transcoding to make one.</li>
+      <li><strong>Transcode only on demand</strong>, for the rare viewer or clip that needs it, and cache the result.</li>
+    </ul>
+    <p>
+      This is the cost structure a media server is built around: transmuxing is cheap enough to do for
+      every stream; transcoding is expensive enough to plan capacity for.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s6">
+    <h2><span class="sec">&sect;6</span>Choosing a codec for a battery camera</h2>
+    <p>
+      A battery camera can't afford software encoding, so the deciding question is usually
+      <strong>what the camera's chip can encode in hardware</strong>. Then browser support, then licensing.
+      The compression figures below are rough, commonly cited numbers; they vary a lot by content and encoder.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Codec</th><th>Compression</th><th>Hardware encode on camera chips</th><th>Browser playback</th><th>Licensing</th></tr></thead>
+        <tbody>
+          <tr><td>H.264 / AVC</td><td>Baseline</td><td>Universal</td><td>Universal; mandatory in WebRTC</td><td>Royalty-bearing, with mature, well-understood patent pools</td></tr>
+          <tr><td>HEVC / H.265</td><td>Roughly 25&ndash;50% smaller than H.264 for the same quality</td><td>Common on newer chips</td><td>Uneven: Safari yes; others depend on platform and hardware</td><td>Royalty-bearing, split across several pools, historically messy</td></tr>
+          <tr><td>VP8</td><td>Around H.264 or a bit worse</td><td>Rare</td><td>Universal in WebRTC; also mandatory there</td><td>Royalty-free</td></tr>
+          <tr><td>VP9</td><td>Similar to HEVC</td><td>Less common on low-cost chips</td><td>Good in Chrome/Firefox; Safari partial</td><td>Royalty-free</td></tr>
+          <tr><td>AV1</td><td>Best of the group</td><td>Only on recent chips</td><td>Growing quickly</td><td>Royalty-free (AOMedia)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      For a fleet today, H.264 is the default answer because it's the only codec that's both hardware-encoded
+      everywhere and playable everywhere, including in HLS and WebRTC. HEVC or AV1 save bandwidth and storage
+      (which matters at fleet scale, Chapter 9 &sect;8), but only on hardware that supports them, and they may
+      force transcoding for viewers who can't decode them. That turns a bandwidth saving into a compute cost.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s7">
+    <h2><span class="sec">&sect;7</span>Homework</h2>
+    <p><a href="#hw07">Homework 7</a> covers this chapter.</p>
+  </section>
+
+</article>
+</div>

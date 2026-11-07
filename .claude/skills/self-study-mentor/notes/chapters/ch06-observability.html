@@ -1,0 +1,198 @@
+<div class="chapter-root">
+<article class="chapter">
+
+  <header>
+    <p class="eyebrow">Chapter 6 &middot; Milestone 2 phase 3, and M7</p>
+    <h1>Metrics, Logs, and Cardinality</h1>
+    <p class="lede">
+      The planned stack is Prometheus for metrics, Loki for logs, and Grafana on top. Both stores are
+      cheap for the same reason: they index very little. This chapter is about what that means for the
+      labels you choose, which signals tell you the queue is in trouble, and how to alert on shedding
+      without waking someone for nothing.
+    </p>
+  </header>
+
+  <nav class="contents" aria-label="Sections">
+    <p class="eyebrow">In this chapter</p>
+    <ol>
+      <li><button type="button" data-jump="s1"><span>1</span>What a time series is</button></li>
+      <li><button type="button" data-jump="s2"><span>2</span>Cardinality, and <code>device_id</code></button></li>
+      <li><button type="button" data-jump="s3"><span>3</span>How Loki indexes</button></li>
+      <li><button type="button" data-jump="s4"><span>4</span>RED and USE</button></li>
+      <li><button type="button" data-jump="s5"><span>5</span>Histograms, summaries, and p99</button></li>
+      <li><button type="button" data-jump="s6"><span>6</span>Alerting on shedding</button></li>
+      <li><button type="button" data-jump="s7"><span>7</span>Why <code>/metrics</code> gets its own port</button></li>
+      <li><button type="button" data-jump="s8"><span>8</span>Homework</button></li>
+    </ol>
+  </nav>
+
+  <div class="callout read">
+    <h3>Read first</h3>
+    <ul>
+      <li>Prometheus docs, <a href="https://prometheus.io/docs/practices/naming/" target="_blank" rel="noopener">&ldquo;Metric and label naming&rdquo;</a> (the label caution at the end) and <a href="https://prometheus.io/docs/practices/histograms/" target="_blank" rel="noopener">&ldquo;Histograms and summaries&rdquo;</a>.</li>
+      <li>Grafana Loki docs, <a href="https://grafana.com/docs/loki/latest/get-started/labels/" target="_blank" rel="noopener">&ldquo;Understand labels&rdquo;</a> and the cardinality section of the label best practices.</li>
+      <li>Tom Wilkie, &ldquo;The RED Method&rdquo;, and Brendan Gregg, <a href="https://www.brendangregg.com/usemethod.html" target="_blank" rel="noopener">&ldquo;The USE Method&rdquo;</a>.</li>
+      <li>Google SRE Workbook, <a href="https://sre.google/workbook/alerting-on-slos/" target="_blank" rel="noopener">&ldquo;Alerting on SLOs&rdquo;</a>. Skim to the multiwindow, multi-burn-rate section.</li>
+    </ul>
+  </div>
+
+  <!-- ================================================================ -->
+  <section id="s1">
+    <h2><span class="sec">&sect;1</span>What a time series is</h2>
+    <p>
+      In Prometheus, a <strong>series</strong> is one metric name plus one exact set of label values. So
+      <code>http_requests_total{route="/v1/telemetry", code="202"}</code> and the same metric with
+      <code>code="503"</code> are two series. Each series is stored and indexed separately, and recent
+      samples for every active series are held in memory (the head block).
+    </p>
+    <p>
+      <strong>Cardinality</strong> is the number of series. It's roughly the product of the number of
+      distinct values of each label: 3 routes &times; 6 status codes &times; 4 pods = 72 series. That's
+      cheap. Cost scales with series count, not with how many requests you serve.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s2">
+    <h2><span class="sec">&sect;2</span>Cardinality, and <code>device_id</code></h2>
+    <p>
+      Add a <code>device_id</code> label and every device becomes its own series, multiplied by every
+      other label. A million devices on one metric with 72 combinations is 72 million series. What grows:
+    </p>
+    <ul>
+      <li>Memory in the Prometheus server, for each active series in the head block.</li>
+      <li>The index, and the time to query it.</li>
+      <li><strong>Churn:</strong> devices come and go, so old series go stale and new ones are created constantly. Short-lived series are especially expensive. An SSRC (Chapter 8), which is random per media stream, is the extreme version.</li>
+    </ul>
+    <p>
+      The result is a Prometheus server that runs out of memory or a vendor bill that scales with your
+      device count. <strong>Where <code>device_id</code> can live instead:</strong> in log lines (not
+      labels), in traces, in a store built for high-cardinality data (a columnar analytics database), or
+      in Athenas itself, which is literally a per-device store. Metrics answer &ldquo;how is the fleet
+      doing?&rdquo;; per-device questions go elsewhere.
+    </p>
+    <p>
+      The same mistake can happen by accident with HTTP routes: label by <code>c.FullPath()</code>, the
+      route template (<code>/v1/telemetry/:device_id</code>), never the raw URL, which contains the ID.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s3">
+    <h2><span class="sec">&sect;3</span>How Loki indexes</h2>
+    <p>
+      Loki indexes only the <strong>labels</strong> on a log stream, not the text of the log lines. Each
+      unique label set is a <strong>stream</strong>. Lines are compressed into chunks per stream. A query
+      first uses the label index to pick streams, then scans those chunks by brute force (with filters
+      such as <code>|= "error"</code> or a <code>| logfmt</code> parser).
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th></th><th>Loki (labels only)</th><th>Full-text index (Elasticsearch-style)</th></tr></thead>
+        <tbody>
+          <tr><td>Ingest and storage cost</td><td>Low. The index is small; chunks compress well and sit in object storage.</td><td>High. The index can be as large as the data.</td></tr>
+          <tr><td>Query speed</td><td>Fast when labels narrow it down; slow for &ldquo;search everything for this string&rdquo;.</td><td>Fast for arbitrary term search.</td></tr>
+          <tr><td>Label choice</td><td>Critical. Few, low-cardinality labels.</td><td>Less critical.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      This changes how you pick labels. A high-cardinality label (<code>device_id</code>) creates a stream
+      per device, and many tiny streams mean many tiny chunks and a bloated index, the same failure as in
+      Prometheus. Use labels for things you'd select by (service, environment, level), keep the device ID in
+      the line, and filter on it at query time. (Recent Loki versions also offer <em>structured metadata</em>
+      for attaching high-cardinality fields to lines without indexing them.)
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s4">
+    <h2><span class="sec">&sect;4</span>RED and USE</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signals</th><th>For</th><th>In Athenas</th></tr></thead>
+        <tbody>
+          <tr><td>RED (Tom Wilkie)</td><td>Rate, Errors, Duration</td><td>Request-driven services: things that receive requests.</td><td>The HTTP handlers: requests per second, <code>4xx</code>/<code>5xx</code> rate, latency histogram, per route.</td></tr>
+          <tr><td>USE (Brendan Gregg)</td><td>Utilization, Saturation, Errors</td><td>Resources: things with capacity.</td><td>The queue and the worker pool.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>For the ring specifically:</p>
+    <ul>
+      <li><strong>Utilization:</strong> fraction of time workers are busy writing.</li>
+      <li><strong>Saturation:</strong> queue depth relative to capacity. This is the early warning: depth rising toward capacity means shedding is coming. Time-in-queue (staleness) is the same signal measured in seconds.</li>
+      <li><strong>Errors:</strong> shed count, and later, failed writes.</li>
+    </ul>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s5">
+    <h2><span class="sec">&sect;5</span>Histograms, summaries, and p99</h2>
+    <p>
+      A <strong>summary</strong> computes quantiles (such as p99) inside each process and exports them as
+      finished numbers. A <strong>histogram</strong> exports counts per bucket (requests that took
+      &le;&nbsp;5 ms, &le;&nbsp;10 ms, &hellip;) and the quantile is computed at query time with
+      <code>histogram_quantile</code>.
+    </p>
+    <p>
+      <strong>You can't average p99s across pods.</strong> A percentile isn't a linear quantity. If pod A
+      handled 1,000 requests with a p99 of 10 ms and pod B handled 10 requests with a p99 of 2 s, the
+      average of the two p99s (about 1 s) describes nobody's experience. The true fleet p99 depends on the
+      full distributions. Histogram buckets <em>are</em> additive: sum the bucket counts across pods, then
+      compute the quantile from the combined distribution.
+    </p>
+    <p>
+      <strong>Choose histograms for request latency in a multi-instance service.</strong> The costs: the
+      quantile is an estimate whose accuracy depends on the bucket boundaries, and each bucket is a series.
+      Summaries are only reasonable when you'll never aggregate across instances. Newer Prometheus
+      versions add native histograms, which pick bucket boundaries automatically and reduce the bucket-choice
+      problem.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s6">
+    <h2><span class="sec">&sect;6</span>Alerting on shedding</h2>
+    <p>
+      <strong>The metric:</strong> a counter of shed requests next to a counter of accepted ones. The
+      signal is the ratio, shed &divide; (shed + accepted), over a window, because an absolute count means
+      nothing without traffic volume.
+    </p>
+    <p>
+      <strong>When to wake someone:</strong> a page should mean that users are being hurt now, and that a
+      human needs to act. A burst that sheds for a few seconds and recovers is the system working as
+      designed, so that's a dashboard item. Page on <strong>sustained</strong> shedding that burns through
+      an error budget. For example, with an SLO of 99.9% of readings accepted, the SRE Workbook's
+      multiwindow approach pages when the budget is burning fast in both a long window (1 hour) and a short
+      one (5 minutes). The long window proves it's real; the short one proves it's still happening. Slow
+      burns become tickets.
+    </p>
+    <p>
+      <strong>The early warning</strong> is saturation (&sect;4): queue depth climbing toward capacity
+      before any shedding starts. That belongs on the dashboard, and maybe a ticket, not a page.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s7">
+    <h2><span class="sec">&sect;7</span>Why <code>/metrics</code> gets its own port</h2>
+    <ul>
+      <li><strong>Exposure.</strong> Metrics reveal internals: route names, error rates, queue sizes, version labels. Keep them off the public listener; only the scraper needs them.</li>
+      <li><strong>Independence under overload.</strong> When the main listener is saturated or shedding, you need metrics most. A separate listener isn't stuck behind the same queue, and it isn't affected by public-traffic middleware.</li>
+      <li><strong>Clean RED numbers.</strong> Scrapes on the main port would be counted as requests by your own metrics middleware.</li>
+      <li><strong>Different policy.</strong> Auth, network policy, and firewall rules can differ per port.</li>
+    </ul>
+    <p>
+      The port number: avoid 9090, which is the Prometheus server's own default and will collide in a
+      compose file. 2112 is a common convention for application metrics.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s8">
+    <h2><span class="sec">&sect;8</span>Homework</h2>
+    <p><a href="#hw06">Homework 6</a> covers this chapter.</p>
+  </section>
+
+</article>
+</div>

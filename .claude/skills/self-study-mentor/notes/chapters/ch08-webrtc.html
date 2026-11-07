@@ -1,0 +1,258 @@
+<div class="chapter-root">
+<article class="chapter">
+
+  <header>
+    <p class="eyebrow">Chapter 8 &middot; Video track, weeks 1&ndash;2</p>
+    <h1>Video II: WebRTC and Real-Time Transport</h1>
+    <p class="lede">
+      WebRTC gets video from a camera to a browser in a few hundred milliseconds by choosing loss over
+      delay at every layer. This chapter walks through session setup, NAT traversal, how lost packets are
+      repaired or ignored, how the sender reacts to a bad network, and where the latency goes.
+    </p>
+  </header>
+
+  <nav class="contents" aria-label="Sections">
+    <p class="eyebrow">In this chapter</p>
+    <ol>
+      <li><button type="button" data-jump="s1"><span>1</span>Setting up a session</button></li>
+      <li><button type="button" data-jump="s2"><span>2</span>NAT, STUN, and TURN</button></li>
+      <li><button type="button" data-jump="s3"><span>3</span>UDP over TCP</button></li>
+      <li><button type="button" data-jump="s4"><span>4</span>RTP, RTCP, and the jitter buffer</button></li>
+      <li><button type="button" data-jump="s5"><span>5</span>NACK, FEC, and PLI</button></li>
+      <li><button type="button" data-jump="s6"><span>6</span>Congestion control</button></li>
+      <li><button type="button" data-jump="s7"><span>7</span>Diagnosing a frozen picture</button></li>
+      <li><button type="button" data-jump="s8"><span>8</span>P2P, SFU, MCU</button></li>
+      <li><button type="button" data-jump="s9"><span>9</span>Where glass-to-glass latency goes</button></li>
+      <li><button type="button" data-jump="s10"><span>10</span>Homework</button></li>
+    </ol>
+  </nav>
+
+  <div class="callout read">
+    <h3>Read first</h3>
+    <ul>
+      <li><a href="https://webrtcforthecurious.com/" target="_blank" rel="noopener">WebRTC for the Curious</a> ch. 1&ndash;3, then 5, 6, and 9 (4 skimmed).</li>
+      <li><a href="https://www.w3.org/TR/webrtc-stats/" target="_blank" rel="noopener">W3C webrtc-stats</a>, for lookup: which field lives on which report.</li>
+    </ul>
+  </div>
+
+  <!-- ================================================================ -->
+  <section id="s1">
+    <h2><span class="sec">&sect;1</span>Setting up a session</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Step</th><th>What happens</th><th>Specified by WebRTC?</th></tr></thead>
+        <tbody>
+          <tr><td>1. Signaling</td><td>The two peers exchange messages through some server you run: WebSocket, an HTTP POST, or the WHIP/WHEP standards (WHIP is RFC 9725).</td><td><strong>No.</strong> The transport for signaling is yours to choose.</td></tr>
+          <tr><td>2. SDP offer/answer</td><td>Each side describes what it can do: codecs and their parameters, media directions, ICE credentials, and its DTLS certificate fingerprint. The answer picks from the offer.</td><td>Yes (the format and the offer/answer model).</td></tr>
+          <tr><td>3. ICE candidates</td><td>Each side gathers candidate addresses: <em>host</em> (local interface), <em>server-reflexive</em> (public address learned from STUN), <em>relay</em> (an address on a TURN server). These are sent through signaling, often trickled as they're found.</td><td>Yes; but the STUN and TURN servers are yours to provide.</td></tr>
+          <tr><td>4. Connectivity checks</td><td>ICE tries candidate pairs with STUN binding requests and picks the best one that works.</td><td>Yes.</td></tr>
+          <tr><td>5. DTLS handshake</td><td>Over the chosen path. Each side checks that the peer's certificate matches the fingerprint from the SDP, so signaling has to be trustworthy.</td><td>Yes.</td></tr>
+          <tr><td>6. SRTP media</td><td>Keys from the DTLS handshake (DTLS-SRTP) encrypt RTP media. Data channels run SCTP over the same DTLS connection.</td><td>Yes. Encryption is mandatory.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>What the standard leaves to you:</strong> the signaling transport and protocol, running
+      STUN and TURN servers, authentication and authorization (who is allowed to watch which camera), and
+      everything about rooms or sessions.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s2">
+    <h2><span class="sec">&sect;2</span>NAT, STUN, and TURN</h2>
+    <p>
+      Most devices sit behind NAT, so neither peer knows the address the other should send to.
+      <strong>STUN</strong> is a tiny service that tells a client what its public address and port look
+      like from outside. That's enough to punch through most home NATs. It fails with
+      <strong>symmetric NAT</strong> (which picks a different public port per destination), with carrier-grade
+      NAT on many mobile networks, and with firewalls that block UDP. Then <strong>TURN</strong> is the
+      fallback: a server that relays every packet between the peers.
+    </p>
+    <p>
+      <strong>What fraction needs TURN?</strong> Commonly cited figures range from under 10% to around 20%
+      of sessions, and the real number depends heavily on your users' networks; corporate and cellular
+      networks push it up. Don't quote a number in an interview without saying how you'd measure yours:
+      read the selected <code>candidate-pair</code> from <code>getStats()</code> and check whether the local
+      or remote candidate type is <code>relay</code>. Count the fraction over all sessions.
+    </p>
+    <p><strong>What TURN costs:</strong></p>
+    <ul>
+      <li><strong>Bandwidth:</strong> every relayed byte passes through your server twice (in and out), and you pay the egress.</li>
+      <li><strong>Latency:</strong> an extra hop, worse if the TURN server is far from both peers. Run them in several regions.</li>
+      <li><strong>Capacity:</strong> TURN servers must be sized for peak relayed bitrate, not session count.</li>
+      <li><strong>The last resort:</strong> TURN over TCP or TLS on port 443 gets through restrictive firewalls, but brings TCP's problems with it (&sect;3).</li>
+    </ul>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s3">
+    <h2><span class="sec">&sect;3</span>UDP over TCP</h2>
+    <p>
+      TCP delivers every byte, in order. If one packet is lost, everything after it waits until the
+      retransmission arrives: <strong>head-of-line blocking</strong>. For a file that's correct. For live
+      video it's backwards: a frame that arrives 300 ms late is useless, and holding newer frames behind it
+      makes everything late.
+    </p>
+    <p>
+      So WebRTC uses UDP and decides per packet whether a loss is worth repairing (&sect;5). It chooses
+      <strong>loss over delay</strong>: a glitch now is better than a picture that drifts further behind
+      real time.
+    </p>
+    <p>
+      <strong>When it falls back to TCP:</strong> when UDP is blocked entirely, ICE can use TURN over TCP
+      or TLS. Quality suffers: retransmissions cause latency spikes and stalls, and WebRTC's congestion
+      control and TCP's own congestion control both react to the same loss, so the stream backs off too
+      far and recovers slowly.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s4">
+    <h2><span class="sec">&sect;4</span>RTP, RTCP, and the jitter buffer</h2>
+    <p>
+      <strong>RTP</strong> carries media. Each packet has a sequence number (to detect loss and reorder),
+      a timestamp (when to play it), and an <strong>SSRC</strong>, a random identifier for the stream.
+      Audio and video are separate RTP streams with separate SSRCs.
+    </p>
+    <p>
+      <strong>RTCP</strong> carries control and feedback alongside: receiver reports (loss fraction,
+      jitter), sender reports (for audio/video sync and round-trip time), NACKs, keyframe requests, and
+      congestion-control feedback. Most of the numbers in <code>getStats()</code> come from RTCP.
+    </p>
+    <p>
+      The <strong>jitter buffer</strong> on the receiver holds packets briefly so it can reorder them,
+      wait for retransmissions, and smooth out uneven arrival times before handing frames to the decoder.
+      It's adaptive: on a jittery network it grows (more latency, fewer glitches); on a clean one it shrinks.
+      It's the main latency control a receiver has.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s5">
+    <h2><span class="sec">&sect;5</span>NACK, FEC, and PLI</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Tool</th><th>What it does</th><th>When it's the wrong tool</th></tr></thead>
+        <tbody>
+          <tr><td>NACK</td><td>The receiver reports specific lost sequence numbers; the sender retransmits them.</td><td>When the round trip is long compared with the jitter buffer: the retransmission arrives after the frame was due. Also when loss comes from congestion, since retransmissions add load to a full link.</td></tr>
+          <tr><td>FEC (forward error correction)</td><td>The sender adds redundant data up front, so the receiver can rebuild some lost packets without asking. (ULPFEC, FlexFEC for video; Opus has in-band FEC for audio.)</td><td>It costs bandwidth all the time, even with no loss. Wrong on a congested link (it adds load), and useless against bursts longer than it can cover.</td></tr>
+          <tr><td>PLI / FIR (picture loss indication / full intra request)</td><td>The receiver asks for a new keyframe because it can't decode what it has.</td><td>Keyframes are large. Frequent requests cause keyframe storms that make congestion worse. With many viewers behind an SFU, every viewer's loss can trigger a request to the camera, so the SFU should combine and rate-limit them.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The order of escalation: retransmit if there's time (NACK); otherwise ride it out with redundancy
+      (FEC); if the decoder's references are broken, reset with a keyframe (PLI/FIR).
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s6">
+    <h2><span class="sec">&sect;6</span>Congestion control</h2>
+    <p>
+      A home camera's uplink is usually the narrowest link. WebRTC senders estimate how much bandwidth is
+      available and change the encoder's target bitrate to match. Google Congestion Control (GCC), used by
+      browsers, combines two signals:
+    </p>
+    <ul>
+      <li><strong>Delay-based:</strong> if packets start arriving with growing gaps compared with how they were sent, a queue is building somewhere on the path. Back off <em>before</em> loss starts. The receiver reports arrival times using transport-wide congestion control (TWCC) feedback.</li>
+      <li><strong>Loss-based:</strong> sustained loss above a threshold also lowers the estimate.</li>
+    </ul>
+    <p>
+      The encoder responds by lowering bitrate, then resolution or frame rate. This is backpressure in the
+      sense of Chapter 4 &sect;6: the sender slows down to match what the network can carry, and the queue
+      it's avoiding is in the home router (bufferbloat).
+    </p>
+    <p><strong>What you'd see in <code>getStats()</code> on a bad uplink:</strong></p>
+    <ul>
+      <li><code>candidate-pair.availableOutgoingBitrate</code> falling.</li>
+      <li><code>outbound-rtp.qualityLimitationReason</code> becoming <code>"bandwidth"</code>, with <code>frameWidth</code>, <code>frameHeight</code>, or <code>framesPerSecond</code> dropping.</li>
+      <li><code>remote-inbound-rtp.roundTripTime</code> rising (queues growing) and <code>fractionLost</code> rising.</li>
+      <li><code>nackCount</code> and retransmitted packets climbing.</li>
+    </ul>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s7">
+    <h2><span class="sec">&sect;7</span>Diagnosing a frozen picture</h2>
+    <p>
+      The viewer's video freezes but audio keeps playing. Audio and video are separate RTP streams, so the
+      network path is up. The problem is specific to video. Likely causes, and the receiver's
+      <code>inbound-rtp</code> (video) stats that tell them apart:
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Cause</th><th>What the stats show</th></tr></thead>
+        <tbody>
+          <tr><td>Video packets stopped arriving (sender paused video, or congestion control dropped it to protect audio)</td><td><code>packetsReceived</code> and <code>bytesReceived</code> flat.</td></tr>
+          <tr><td>Lost reference or keyframe; decoder waiting for a new keyframe</td><td>Packets still arriving, <code>framesDecoded</code> flat, <code>pliCount</code> or <code>firCount</code> rising. <code>keyFramesDecoded</code> doesn't increase until one arrives. If PLIs keep rising with no keyframe, the sender (or SFU) isn't honouring them.</td></tr>
+          <tr><td>Decoder stall or failure (for example a hardware decoder error)</td><td>Packets arriving, keyframes arriving, <code>framesDecoded</code> still flat; or frames decoded but not rendered (<code>framesDropped</code> rising).</td></tr>
+          <tr><td>Severe jitter or loss</td><td><code>freezeCount</code> and <code>totalFreezesDuration</code> rising, <code>packetsLost</code> and <code>jitter</code> high, jitter buffer delay growing.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The method is the part to say out loud: follow the frame through the pipeline (received &rarr; decoded
+      &rarr; rendered) and find the first counter that stops moving.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s8">
+    <h2><span class="sec">&sect;8</span>P2P, SFU, MCU</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Topology</th><th>How it works</th><th>Gains</th><th>Costs</th></tr></thead>
+        <tbody>
+          <tr><td>P2P (mesh)</td><td>Camera sends directly to each viewer.</td><td>No server media cost (unless TURN); lowest latency.</td><td>The camera uploads one copy per viewer. Two viewers doubles the uplink and the battery drain; there's no recording point.</td></tr>
+          <tr><td>SFU (selective forwarding unit)</td><td>Camera sends once to a server, which forwards packets to each viewer without decoding. With simulcast, it picks a quality layer per viewer.</td><td>Camera uploads once. Cheap per viewer (no decode). A natural place to record and enforce access.</td><td>Server bandwidth and operations. Keyframe-request handling across viewers (&sect;5).</td></tr>
+          <tr><td>MCU (multipoint control unit)</td><td>Server decodes every input and mixes them into one composite stream per viewer.</td><td>Each client receives one stream, so it works for very weak clients in many-party calls.</td><td>Transcoding cost per session; added latency. Rarely right for cameras.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>For a home camera:</strong> P2P is attractive for one viewer on the home network. As soon as
+      two family members watch at once, P2P doubles the camera's uplink, so the product wants an SFU or
+      media server to fan out. That's also where recording can tap the stream. (Pion's
+      <code>broadcast</code> example is a tiny SFU.)
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s9">
+    <h2><span class="sec">&sect;9</span>Where glass-to-glass latency goes</h2>
+    <p>
+      Glass-to-glass latency is the time from light hitting the camera's sensor to the picture appearing on
+      the viewer's screen. Stages, with rough figures for WebRTC:
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Stage</th><th>Typical</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Capture</td><td>Up to one frame interval (33 ms at 30 fps)</td><td>Plus sensor exposure.</td></tr>
+          <tr><td>Encode</td><td>A few ms to a frame</td><td>Lookahead and B-frames add more, which is why real-time encoders avoid them.</td></tr>
+          <tr><td>Packetize and pace</td><td>A few ms</td><td>The pacer spreads a large keyframe over time to avoid bursts.</td></tr>
+          <tr><td>Network</td><td>One-way delay, plus queueing</td><td>Bufferbloat in the home router can add hundreds of milliseconds.</td></tr>
+          <tr><td>Server hop (SFU/TURN)</td><td>A few ms, plus distance</td><td></td></tr>
+          <tr><td>Jitter buffer</td><td>Tens to hundreds of ms</td><td>Adaptive; usually the largest adjustable piece.</td></tr>
+          <tr><td>Decode and render</td><td>A frame or two</td><td>Including waiting for the display's refresh.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>Which to attack first:</strong> the one you've measured as largest, which in practice is
+      usually buffering: the jitter buffer for WebRTC, or for HLS the segment duration times the number of
+      segments the player buffers (Chapter 9 &sect;1), which dwarfs everything else. After that, network
+      queueing.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s10">
+    <h2><span class="sec">&sect;10</span>Homework</h2>
+    <p><a href="#hw08">Homework 8</a> covers this chapter.</p>
+  </section>
+
+</article>
+</div>

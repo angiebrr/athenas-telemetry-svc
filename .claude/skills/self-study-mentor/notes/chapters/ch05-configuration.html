@@ -1,0 +1,209 @@
+<div class="chapter-root">
+<article class="chapter">
+
+  <header>
+    <p class="eyebrow">Chapter 5 &middot; Milestone 2, in review</p>
+    <h1>Configuration and the Composition Root</h1>
+    <p class="lede">
+      Config looks like plumbing, and that's why the interesting bugs live there. This chapter covers
+      where Athenas reads its settings, the test that passed while production ignored them, what the
+      image claims about itself, and what to do with a library that only offers a global switch.
+    </p>
+  </header>
+
+  <nav class="contents" aria-label="Sections">
+    <p class="eyebrow">In this chapter</p>
+    <ol>
+      <li><button type="button" data-jump="s1"><span>1</span>Sources and precedence</button></li>
+      <li><button type="button" data-jump="s2"><span>2</span>The test that couldn't fail</button></li>
+      <li><button type="button" data-jump="s3"><span>3</span>Logging config</button></li>
+      <li><button type="button" data-jump="s4"><span>4</span>12-factor, and <code>APP_ENV=prod</code> in the image</button></li>
+      <li><button type="button" data-jump="s5"><span>5</span>The composition root</button></li>
+      <li><button type="button" data-jump="s6"><span>6</span>Global switches</button></li>
+      <li><button type="button" data-jump="s7"><span>7</span>Zero values at a JSON boundary</button></li>
+      <li><button type="button" data-jump="s8"><span>8</span>Homework</button></li>
+    </ol>
+  </nav>
+
+  <div class="callout read">
+    <h3>Read first</h3>
+    <ul>
+      <li><a href="https://12factor.net/config" target="_blank" rel="noopener">The Twelve-Factor App, III &ldquo;Config&rdquo;</a> and <a href="https://12factor.net/build-release-run" target="_blank" rel="noopener">V &ldquo;Build, release, run&rdquo;</a>. Two short pages.</li>
+      <li>Mark Seemann, <a href="https://blog.ploeh.dk/2011/07/28/CompositionRoot/" target="_blank" rel="noopener">&ldquo;Composition Root&rdquo;</a>. The name for what <code>main</code> does.</li>
+      <li>Dave Cheney, <a href="https://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis" target="_blank" rel="noopener">&ldquo;Functional options for friendly APIs&rdquo;</a>. The pattern behind <code>InitEnv</code> and <code>NewServer</code>.</li>
+    </ul>
+  </div>
+
+  <!-- ================================================================ -->
+  <section id="s1">
+    <h2><span class="sec">&sect;1</span>Sources and precedence</h2>
+    <p>
+      <code>config.InitEnv</code> builds an <code>AppConfig</code> (<code>PORT</code>, <code>APP_ENV</code>)
+      from three sources. Later sources win:
+    </p>
+    <ol>
+      <li><strong>Defaults</strong>, set in code: port 8080, env <code>dev</code>.</li>
+      <li><strong>A <code>.env</code> file</strong>, if one exists. Useful on a laptop.</li>
+      <li><strong>Environment variables.</strong> Authoritative, as 12-factor says they should be.</li>
+    </ol>
+    <p>
+      (This follows viper's own order, which also puts flags and explicit <code>Set</code> calls above
+      the environment. Athenas uses neither.)
+    </p>
+    <p>
+      <strong>A missing <code>.env</code> is a warning, not a failure.</strong> The container never has
+      one; it's configured by environment variables. Any other read error, such as a malformed file, is
+      fatal. After reading, <code>AppConfig.Validate</code> checks the values: the port must be between
+      1024 and 65535 (no privileged ports), and the env must be <code>dev</code> or <code>prod</code>.
+      Failing fast at startup is the point: a bad config should stop the process before it serves
+      anything, not surface as strange behaviour an hour later.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s2">
+    <h2><span class="sec">&sect;2</span>The test that couldn't fail</h2>
+    <p>
+      The defaults-setup function was originally injectable, so tests could swap it out. Production's
+      version set its defaults on viper's <em>global</em> instance, while the config was read from a
+      separate instance. The result: every env var was silently ignored in production. The tests stayed
+      green, because they injected their own defaults function, which didn't have the bug. The test had
+      replaced the code it was supposed to be checking.
+    </p>
+    <p><strong>What changed, so a test can't miss it again:</strong></p>
+    <ul>
+      <li>The defaults function became non-injectable. Tests now exercise the real one.</li>
+      <li>A <code>TestConfigInit</code> case sets <code>APP_ENV=prod</code>, which isn't the default. If that value doesn't come through, nothing else could have made the test pass. A test that sets a variable to its default value proves nothing about whether the variable is read.</li>
+      <li>The container suite runs the image with <code>APP_ENV=prod</code>, so the real wiring is exercised end to end.</li>
+    </ul>
+    <p>
+      The general lesson, which Chapter 2 &sect;8 also draws: <strong>a seam you add for testing is a
+      place where the test and production can diverge.</strong> Put seams where you need to control an
+      input you can't otherwise control, not around code you could just run.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s3">
+    <h2><span class="sec">&sect;3</span>Logging config</h2>
+    <p>
+      Logging the parsed config at startup is tempting, because it answers &ldquo;what was this process
+      actually running with?&rdquo; The risk is secrets. Today the config is a port and an env name. At M3
+      it gains AWS credentials or a queue URL; at M4, a Postgres connection string with a password in it.
+      Logs get shipped to Loki or a vendor, retained for weeks, and read by more people than the secrets
+      should be.
+    </p>
+    <p>Safer options:</p>
+    <ul>
+      <li>Log an allowlist of non-secret fields instead of the whole struct.</li>
+      <li>Give secrets a type whose <code>String</code> and <code>LogValue</code> methods print <code>[redacted]</code>, so that logging the struct by accident is safe.</li>
+      <li>Log where each value came from (default, file, env) rather than the value itself.</li>
+    </ul>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s4">
+    <h2><span class="sec">&sect;4</span>12-factor, and <code>APP_ENV=prod</code> in the image</h2>
+    <p>
+      <strong>Factor III, Config:</strong> store config in the environment, so the same code can run in any
+      deploy without changes. <strong>Factor V, Build, release, run:</strong> the build produces an artifact
+      (the image); a release combines that artifact with one environment's config; then it runs. The
+      image is supposed to be environment-neutral.
+    </p>
+    <p>
+      The Dockerfile sets <code>APP_ENV=prod</code>. That bends factor V on purpose:
+    </p>
+    <ul>
+      <li><strong>Gain:</strong> the artifact is safe by default. Anyone who runs it without thinking gets release mode, and the acceptance suite tests the configuration that actually ships.</li>
+      <li><strong>Cost:</strong> the image claims to be prod wherever it runs, unless the deploy overrides <code>APP_ENV</code>. A staging deploy that forgets the override is labelled prod.</li>
+    </ul>
+    <p>
+      <strong>Why <code>APP_ENV</code>, not <code>ENV</code>:</strong> POSIX <code>sh</code> gives
+      <code>ENV</code> a meaning. An interactive shell reads the file named by <code>$ENV</code> at startup.
+      Prefixing the name avoids colliding with the shell.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s5">
+    <h2><span class="sec">&sect;5</span>The composition root</h2>
+    <p>
+      The <strong>composition root</strong> is the one place where the application's object graph is
+      assembled. In Go it's <code>main</code>. In Athenas, <code>main</code> loads config, builds the store,
+      builds the service, maps the environment to a server mode, and builds the server.
+    </p>
+    <p>
+      <strong>&ldquo;Prod means release mode&rdquo; lives in <code>main</code>.</strong> <code>main</code>
+      translates <code>config.EnvProd</code> into <code>api.ReleaseMode</code> and passes it to
+      <code>api.NewServer</code> as a functional option. As a result:
+    </p>
+    <ul>
+      <li><code>internal/api</code> never learns environment names. It knows about server modes, which is a transport concept.</li>
+      <li><code>api</code> doesn't import <code>config</code>, so the dependency arrows still point inward.</li>
+      <li><code>api.ServerMode</code> wraps gin's mode strings, so <code>main</code> never imports gin.</li>
+      <li>A new environment (say <code>staging</code>) changes one <code>if</code> in <code>main</code>, not the HTTP layer.</li>
+    </ul>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s6">
+    <h2><span class="sec">&sect;6</span>Global switches</h2>
+    <p>
+      gin has no per-engine mode. <code>gin.SetMode</code> writes a package-level value, so it's
+      process-global. The two places to call it, both weighed on 2026-09-28:
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Where</th><th>Exposes</th><th>Hides</th></tr></thead>
+        <tbody>
+          <tr><td>In <code>main</code></td><td>The global side effect is visible where the process is assembled.</td><td>Nothing, but <code>main</code> has to import gin.</td></tr>
+          <tr><td>Inside <code>api.NewServer</code> (chosen)</td><td>gin stays inside one package.</td><td>A constructor quietly changes process-wide state. Two servers built with different modes, for example in parallel tests, interfere with each other.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The cost of the chosen option should be written where callers will see it: in
+      <code>NewServer</code>'s doc comment.
+    </p>
+    <p>
+      <strong>What release mode actually changes:</strong> gin's own debug output. In debug mode gin
+      prints every registered route at startup and warns about things like running in debug mode. Release
+      mode turns that off. It doesn't change your middleware, request handling, or meaningful performance.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s7">
+    <h2><span class="sec">&sect;7</span>Zero values at a JSON boundary</h2>
+    <p>
+      Every Go type has a zero value, and <code>encoding/json</code> leaves a field at its zero value when
+      the JSON omits it. So a request with no <code>timestamp</code> decodes to
+      <code>Timestamp: 0</code>, and the server can't tell &ldquo;missing&rdquo; from &ldquo;the device
+      really sent 0&rdquo;. Accepting 0 meant a missing timestamp was silently stored as 1970-01-01.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Option</th><th>How it tells missing from zero</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td>Treat zero as missing (chosen, <code>863e66b</code>)</td><td>It doesn't; it rejects both.</td><td>A device that really reports epoch 0, for example after a clock reset, is rejected. That's the right direction to fail.</td></tr>
+          <tr><td>Pointer field (<code>*int64</code>)</td><td><code>nil</code> means absent.</td><td>Changes the exported <code>models</code> type; every user has to handle <code>nil</code>.</td></tr>
+          <tr><td><code>omitempty</code></td><td>It doesn't. It only affects <em>encoding</em> (leaving zero values out of output), not decoding.</td><td>A common misconception, not a fix.</td></tr>
+          <tr><td>Presence check (decode to a map or <code>json.RawMessage</code> first, or a custom <code>UnmarshalJSON</code>)</td><td>Checks whether the key was in the JSON.</td><td>More code at the boundary, and it couples validation to the wire format.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Note the commit hygiene point from the Decision Record: this change shipped inside a
+      <code>refactor:</code> commit, but it was a behaviour change. A refactor, by definition, doesn't
+      change behaviour.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s8">
+    <h2><span class="sec">&sect;8</span>Homework</h2>
+    <p><a href="#hw05">Homework 5</a> covers this chapter.</p>
+  </section>
+
+</article>
+</div>

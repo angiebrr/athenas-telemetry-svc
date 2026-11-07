@@ -1,0 +1,323 @@
+<div class="chapter-root">
+<article class="chapter">
+
+  <header>
+    <p class="eyebrow">Chapter 2 &middot; Cross-cutting, and Milestone 1 in review</p>
+    <h1>Testing Outside-In: The Shape of This Suite</h1>
+    <p class="lede">
+      Every test in this repo answers one of two questions: what does the system promise, or does
+      this one piece keep its part of the bargain? This chapter names the kinds of test you have, what
+      each one can see, and the decisions from M1 that gave the suite its shape.
+    </p>
+  </header>
+
+  <nav class="contents" aria-label="Sections">
+    <p class="eyebrow">In this chapter</p>
+    <ol>
+      <li><button type="button" data-jump="s1"><span>1</span>Two axes, not one</button></li>
+      <li><button type="button" data-jump="s2"><span>2</span>The kinds of test here</button></li>
+      <li><button type="button" data-jump="s3"><span>3</span>Doubles: the five names</button></li>
+      <li><button type="button" data-jump="s4"><span>4</span>Spec, driver, and the exported package</button></li>
+      <li><button type="button" data-jump="s5"><span>5</span>What each level catches</button></li>
+      <li><button type="button" data-jump="s6"><span>6</span>Outside-in and the walking skeleton</button></li>
+      <li><button type="button" data-jump="s7"><span>7</span>Red for the right reason</button></li>
+      <li><button type="button" data-jump="s8"><span>8</span>Listening to the tests</button></li>
+      <li><button type="button" data-jump="s9"><span>9</span>M1's structural decisions</button></li>
+      <li><button type="button" data-jump="s10"><span>10</span>Homework</button></li>
+    </ol>
+  </nav>
+
+  <div class="callout read">
+    <h3>Read first</h3>
+    <ul>
+      <li><em>GOOS</em> ch. 1&ndash;5. Ch. 1 defines the three levels; ch. 4 is the walking skeleton; ch. 5 is &ldquo;maintaining the cycle&rdquo;. You've read these.</li>
+      <li>Martin Fowler, <a href="https://martinfowler.com/bliki/UnitTest.html" target="_blank" rel="noopener">&ldquo;UnitTest&rdquo;</a> (solitary vs. sociable) and <a href="https://martinfowler.com/articles/mocksArentStubs.html" target="_blank" rel="noopener">&ldquo;Mocks Aren't Stubs&rdquo;</a> (Meszaros's double vocabulary, and state vs. behaviour verification).</li>
+      <li>Martin Fowler, <a href="https://martinfowler.com/articles/practical-test-pyramid.html" target="_blank" rel="noopener">&ldquo;The Practical Test Pyramid&rdquo;</a> (Ham Vocke). The pyramid, and how the ice-cream cone forms.</li>
+    </ul>
+  </div>
+
+  <!-- ================================================================ -->
+  <section id="s1">
+    <h2><span class="sec">&sect;1</span>Two axes, not one</h2>
+    <p>
+      Most people fumble testing vocabulary because they use one word for two different properties.
+      Keep them apart:
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Axis</th><th>Values</th><th>The question it answers</th></tr></thead>
+        <tbody>
+          <tr><td>Level</td><td>Acceptance (end-to-end) &middot; integration &middot; unit</td><td>How much of the real system is running when the test executes? (GOOS ch. 1)</td></tr>
+          <tr><td>Reuse</td><td>Contract test &middot; single-subject test</td><td>Is the test body written once and run against many implementations, or written for one?</td></tr>
+          <tr><td>Isolation</td><td>Solitary &middot; sociable</td><td>Does the unit under test get real collaborators (sociable) or doubles (solitary)? (Fowler)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The key idea for this repo: <strong>the body doesn't determine the level, the entry point does.</strong>
+      <code>TelemetrySpec</code> is one body. Bound to <code>telemetry.Service</code> it is a fast,
+      in-process test. Bound to the HTTP driver and a container it is an end-to-end test. Same
+      assertions, different evidence.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s2">
+    <h2><span class="sec">&sect;2</span>The kinds of test here</h2>
+    <p>
+      There are two kinds of artifact. <strong>Shared test bodies</strong> take a subject and assert
+      against it; <code>go test</code> never runs them directly. <strong>Entry points</strong>
+      (<code>TestXxx</code>) bind a concrete subject and call a body, or assert directly.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Entry point</th><th>Binds</th><th>Kind</th><th>What only it buys</th></tr></thead>
+        <tbody>
+          <tr><td><code>TestAthenasTelemetryServer</code></td><td>HTTP driver &rarr; container</td><td>Acceptance / end-to-end</td><td>The shipped artifact works: Dockerfile, image, real config, real port, real JSON over a real socket.</td></tr>
+          <tr><td><code>TestTelemetryService</code></td><td><code>telemetry.Service</code></td><td>Subcutaneous: the whole behaviour, just below transport</td><td>The promises hold in milliseconds, with no Docker. The fast feedback loop for the Spec.</td></tr>
+          <tr><td><code>TestHandleIngestTelemetry</code>, <code>TestHandleQueryTelemetry</code></td><td>gin engine via <code>httptest</code></td><td>Driving-adapter test</td><td>Status-code translation: validation error &rarr; <code>400</code>, not found &rarr; <code>404</code>, anything else &rarr; scrubbed <code>500</code>.</td></tr>
+          <tr><td><code>TestInMemoryStore</code></td><td><code>InMemoryStore</code> &rarr; <code>StorerContract</code></td><td>Driven-adapter conformance (contract test)</td><td>Any storage adapter behaves the same. Postgres at M4 runs the same body.</td></tr>
+          <tr><td><code>TestQueryDeviceIDs</code>, the validation table</td><td>Domain functions</td><td>Table-driven unit</td><td>Every edge case, cheaply. Seven validation cases cost microseconds.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Two kinds of contract</h3>
+    <p>
+      <code>TelemetrySpec</code> and <code>StorerContract</code> are both shared bodies, and both are
+      called &ldquo;spec&rdquo; or &ldquo;contract&rdquo; loosely. They sit on opposite sides of the hexagon:
+    </p>
+    <ul>
+      <li><strong><code>TelemetrySpec</code> is a contract on a driving port.</strong> It describes what a <em>caller</em> of the service gets. It is the system's promise to the outside world, and it is the Spec that new behaviour starts from.</li>
+      <li><strong><code>StorerContract</code> is a contract on a driven port.</strong> It describes what the service <em>requires</em> of any storage adapter. Nothing outside the service ever sees it. Its job is to make adapters substitutable.</li>
+    </ul>
+    <p>
+      (The question bank once called the storage body <code>data.DataStoreSpec</code>. It's
+      <code>StorerContract</code> now, in a <code>_test.go</code> file, because only this module's tests
+      need it.)
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s3">
+    <h2><span class="sec">&sect;3</span>Doubles: the five names</h2>
+    <p>Gerard Meszaros's vocabulary, which Fowler popularised. Each one answers a different need:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Double</th><th>What it is</th><th>In this repo</th></tr></thead>
+        <tbody>
+          <tr><td>Dummy</td><td>Passed to fill a parameter; never used.</td><td>None.</td></tr>
+          <tr><td>Fake</td><td>A <em>working</em> implementation with a shortcut that makes it unfit for production.</td><td><code>InMemoryStore</code>, once Postgres exists. Today it's the real (and only) store.</td></tr>
+          <tr><td>Stub</td><td>Returns canned answers, or controls <em>when</em> things happen. Controls an indirect input.</td><td>The gated, blocking <code>Storer</code> that M2's full-queue test needs (the repo's first double).</td></tr>
+          <tr><td>Spy</td><td>Records what was called, for assertions afterward.</td><td>None. The drain test counts with the real store instead (state verification).</td></tr>
+          <tr><td>Mock</td><td>Pre-programmed with expectations; fails the test itself if called wrongly (behaviour verification).</td><td>None yet. GoMock arrives at M3, for interfaces you own.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>Why the distinction matters for <code>telemetry.Query</code>.</strong> Calling the in-memory
+      store a &ldquo;mock&rdquo; implies the test is checking which calls were made. It isn't; it checks
+      the state that comes back. A fake has a different risk from a mock: a fake can <em>drift</em> from
+      the real thing and make every test above it lie. That's the reason <code>StorerContract</code>
+      exists. When Postgres lands, both adapters run the same contract, so the fake can't quietly
+      behave differently from production.
+    </p>
+    <p>
+      <strong>Only mock types you own</strong> (GOOS ch. 8). At M3, you'll generate mocks for your own
+      publisher interface, not for the AWS SDK. The SDK gets exercised for real against LocalStack.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s4">
+    <h2><span class="sec">&sect;4</span>Spec, driver, and the exported package</h2>
+    <p>
+      The pattern is three pieces. The <strong>Spec</strong> is the rules, written only against two
+      interfaces. A <strong>Driver</strong> is the plumbing that satisfies those interfaces against a
+      real system. The <strong>entry point</strong> wires one to the other. One Spec, many drivers: HTTP
+      today, SQS and multi-pod later, and in-process adapters for speed.
+    </p>
+    <h3>Why <code>specifications</code> is an exported, non-test package</h3>
+    <p>
+      Go doesn't let one module import another module's <code>_test.go</code> files. The acceptance
+      tests live in a separate module, so the Spec has to be ordinary, exported code. The costs:
+    </p>
+    <ul>
+      <li>Test-only dependencies (<code>testify</code>, <code>uuid</code>) become part of the service module's import graph. They aren't linked into the binary unless <code>main</code> imports the package, but they show up in <code>go.mod</code> and in vulnerability scans.</li>
+      <li>The Spec is part of the module's public surface. Anyone could import it, so its signature is an API.</li>
+      <li>Helpers it calls, like <code>shared.ValidTelemetry</code>, must be exported too, even though they're test data.</li>
+    </ul>
+    <p>
+      <strong>Who else does this.</strong> The Go standard library ships conformance suites as normal
+      packages: <code>testing/fstest.TestFS</code> checks any <code>fs.FS</code> implementation, and
+      <code>golang.org/x/net/nettest.TestConn</code> checks any <code>net.Conn</code>. Same shape: the
+      suite is exported so other packages can prove they satisfy an interface.
+    </p>
+    <h3>Why the driver hardcodes <code>/v1/telemetry</code></h3>
+    <p>
+      The driver is a black-box client. If it imported <code>api.TelemetryPath</code>, renaming the route
+      would rename it in the test as well, and the suite would stay green while every real device broke.
+      A duplicated literal is the point: the test holds the published contract, and the code has to match it.
+    </p>
+    <h3>Why acceptance cases need no reset between runs</h3>
+    <p>
+      Each case creates its own device with a fresh UUID (<code>shared.ValidTelemetry()</code>), so
+      no case can see another's data. This is <strong>isolation by unique keys</strong>. The alternative,
+      a <code>Reset()</code> method on the interface, would put a test-only operation on a production
+      port. Every future driver (SQS, Postgres, many pods) would need to implement &ldquo;delete
+      everything&rdquo;, which is impossible or dangerous against a shared environment. Unique keys also
+      let cases run in parallel and against a long-lived deployment.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s5">
+    <h2><span class="sec">&sect;5</span>What each level catches</h2>
+    <p>
+      <code>TelemetrySpec</code> used to run at three levels: domain, <code>httptest</code>, and
+      container. On 2026-09-21 the handler tests switched to hand-written status-code cases, so it runs
+      at two. The question still holds for the three places behaviour can break:
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Level</th><th>Catches</th><th>Can't see</th><th>Cost per run</th></tr></thead>
+        <tbody>
+          <tr><td>Domain (<code>telemetry.Service</code>)</td><td>Wrong rules: validation, query semantics, eventual visibility.</td><td>JSON field names, status codes, routing, config, the image.</td><td>Milliseconds.</td></tr>
+          <tr><td>Transport (<code>httptest</code>)</td><td>Binding and serialisation bugs, wrong status codes, an internal error leaking into a response body.</td><td>The Dockerfile, env-var config, the real listener, the build.</td><td>Milliseconds.</td></tr>
+          <tr><td>Container</td><td>A broken image, a missing env var, the wrong port, release-mode differences (<code>APP_ENV=prod</code>), a route the driver can't reach.</td><td>Edge cases, cheaply. It's too slow to cover them all.</td><td>Seconds to build and boot; needs Docker.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>If the suite got too slow, delete from the middle first.</strong> A Spec case that the
+      domain level covers fully, and whose transport translation a handler test covers, doesn't need a
+      container round-trip too. Keep at least one container case per route as a smoke test. The risk
+      you accept: an interaction between layers that only shows up when they run together. Don't delete
+      the domain level; it's what makes the Spec fast enough to run on every save.
+    </p>
+    <h3>Why seven validation cases, but one Spec case</h3>
+    <p>
+      The Spec states a <em>promise</em>: invalid telemetry is rejected. One case proves the validation
+      is wired in end to end. Which fields count as invalid is a rule that lives in one function, so it's
+      tested exhaustively there, at unit speed. Running all seven through a container would multiply the
+      slowest tests by seven to prove nothing new about the wiring.
+    </p>
+    <h3>The ice-cream cone</h3>
+    <p>
+      The test pyramid has many fast unit tests at the bottom and few end-to-end tests at the top. The
+      <strong>ice-cream cone</strong> is that shape inverted: most coverage lives in slow, flaky end-to-end
+      tests, often with manual testing on top. It forms when every new behaviour gets a container case
+      &ldquo;to be safe&rdquo;. In this repo the risk is M3&ndash;M5: LocalStack, Postgres, and Kafka
+      containers will make the acceptance suite slow enough that people stop running it. Each milestone
+      should add more unit coverage than end-to-end coverage.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s6">
+    <h2><span class="sec">&sect;6</span>Outside-in and the walking skeleton</h2>
+    <p>
+      A <strong>walking skeleton</strong> (GOOS ch. 4) is the thinnest slice of real functionality that
+      can be built, deployed, and tested end to end. You build it before any feature because the hardest
+      problems in a new system are usually in the plumbing: the build, packaging, configuration, and how
+      the test reaches the system. A skeleton surfaces them on day one, when they're cheap to fix, and
+      gives every later feature a place to plug in its acceptance test.
+    </p>
+    <p>
+      <strong>Outside-in</strong> means starting from a failing acceptance test that describes behaviour a
+      caller can see, then working inward, discovering each collaborator's interface because the layer
+      above needs it. <strong>Inside-out</strong> builds the pieces first and assembles them later.
+    </p>
+    <p>
+      What goes wrong if you build the store first: you have to guess its interface before anyone needs
+      it, and guesses tend to be too general (methods nobody calls) or wrong (the query the handler
+      actually needs isn't there). You also have nothing externally observable to test. This repo has a
+      concrete version of the argument: on 2026-08-26, M2 was reordered to build the store and the
+      <code>GET</code> endpoint before the dispatch ring, because a ring with no destination has no
+      behaviour an acceptance test can drive.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s7">
+    <h2><span class="sec">&sect;7</span>Red for the right reason</h2>
+    <p>
+      A new test should fail because <em>the behaviour is missing</em>, with a message that says so.
+      It shouldn't fail because it doesn't compile, because setup is broken, or because some other rule
+      fires first. A test that fails for the wrong reason will often pass for the wrong reason too, once
+      you &ldquo;fix&rdquo; it.
+    </p>
+    <ul>
+      <li><strong>From this repo, failing for the wrong reason:</strong> the port cases in <code>TestAppConfigValidate</code> once failed on an empty <code>Env</code> field, not on the port value they were about. The fix (2026-09-26) built each case from a valid config and changed only the field under test.</li>
+      <li><strong>From this repo, passing for the wrong reason:</strong> M2's first engine test (&ldquo;queued readings eventually reach the store&rdquo;) is satisfied by a plain synchronous <code>Insert</code>. Green, but it didn't force the design it was written for. That's why the next tests are &ldquo;Push returns while the store is blocked&rdquo; and &ldquo;a full queue rejects&rdquo;.</li>
+      <li><strong>How to notice:</strong> read the failure message before writing any code. Ask &ldquo;what is the smallest wrong implementation that passes this?&rdquo; If a trivial one passes, the test isn't constraining what you think it is.</li>
+    </ul>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s8">
+    <h2><span class="sec">&sect;8</span>Listening to the tests</h2>
+    <p>
+      GOOS ch. 20: when a test is awkward to write, the awkwardness is usually telling you something
+      about the design. The response is to change the design, not to force the test.
+    </p>
+    <p>
+      <strong>This repo's example: the config seam (2026-09-26).</strong> The defaults-setup function was
+      injectable so a test could replace it. An injected double then hid a real bug: production defaults
+      were being set on viper's global instance rather than the one being read, so every env var was
+      silently ignored, and the test stayed green. The fix was to make the function non-injectable and
+      have tests exercise the real defaults. The lesson: an injectable seam can let a test replace the
+      very code it was meant to check.
+    </p>
+    <p>
+      The same instinct shaped the full-queue test for M2 (2026-11-05): a hook inside the engine that
+      &ldquo;pretends to be full&rdquo; was rejected for the same reason, and a blocking store stub was used
+      instead, so the real engine runs.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s9">
+    <h2><span class="sec">&sect;9</span>M1's structural decisions</h2>
+    <h3>Why <code>Validate</code> isn't a method on <code>models.Telemetry</code></h3>
+    <p>
+      <code>models</code> is exported and imported by the acceptance module. If validation lived on the
+      model, a driver could call it client-side and return the error without ever contacting the server.
+      The Spec would pass while the server validated nothing. Putting <code>Validate</code> in
+      <code>internal/telemetry</code> means only the service can run it, so a passing Spec proves the
+      <em>server</em> rejected the input.
+    </p>
+    <h3>Why a <code>replace</code> directive and no <code>go.work</code></h3>
+    <p>
+      The project notes say &ldquo;Go workspaces&rdquo;, but the repo has two modules joined by
+      <code>replace github.com/angiebrr/athenas-telemetry-svc =&gt; ../athenas-telemetry-svc</code> in the
+      acceptance module's <code>go.mod</code>. That makes the acceptance tests always build against the
+      local working tree, not a published version, with no extra file for developers or CI to keep in
+      sync. A <code>go.work</code> would do much the same locally, but it's usually kept out of version
+      control, and then CI wouldn't use it.
+    </p>
+    <p>
+      <strong>The dependency flows one way:</strong> acceptance tests import the service; the service
+      never imports the tests. A cycle would make the tests part of the thing they test, and the service
+      would carry test code into its build.
+    </p>
+    <h3>What the container test proves that <code>httptest</code> doesn't</h3>
+    <p>
+      That the artifact you'd ship actually works: the Dockerfile builds from the repo root, the binary
+      starts, it reads <code>PORT</code> and <code>APP_ENV</code> from the environment, it listens where
+      you think it does, and it runs in release mode. <code>httptest</code> calls the gin engine
+      in-process and skips all of that. The cost is seconds per run and a Docker dependency, and if
+      Docker isn't running the suite now fails rather than silently skipping.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s10">
+    <h2><span class="sec">&sect;10</span>Homework</h2>
+    <p>
+      <a href="#hw02">Homework 2</a> covers this chapter: vocabulary, the double taxonomy, and the
+      cross-cutting and M1 interview questions.
+    </p>
+  </section>
+
+</article>
+</div>

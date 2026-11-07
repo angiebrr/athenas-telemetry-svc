@@ -1,0 +1,223 @@
+<div class="chapter-root">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="mk" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+    <marker id="ah-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="mk-bad" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+  </defs>
+</svg>
+<article class="chapter">
+
+  <header>
+    <p class="eyebrow">Chapter 3 &middot; Milestone 2</p>
+    <h1>Shared Memory, Races, and Ownership</h1>
+    <p class="lede">
+      The store is a map that many goroutines touch. This chapter is about how you know that's safe,
+      what the race detector can and can't tell you, why a returned slice is a hole in a mutex, and
+      when one goroutine owning the state beats a lock.
+    </p>
+  </header>
+
+  <nav class="contents" aria-label="Sections">
+    <p class="eyebrow">In this chapter</p>
+    <ol>
+      <li><button type="button" data-jump="s1"><span>1</span>Three ways concurrent code goes wrong</button></li>
+      <li><button type="button" data-jump="s2"><span>2</span>What <code>-race</code> proves</button></li>
+      <li><button type="button" data-jump="s3"><span>3</span>The slice that escapes the lock</button></li>
+      <li><button type="button" data-jump="s4"><span>4</span>How you know the store is safe</button></li>
+      <li><button type="button" data-jump="s5"><span>5</span>Mutex or owning goroutine</button></li>
+      <li><button type="button" data-jump="s6"><span>6</span>Buffered vs. unbuffered under a burst</button></li>
+      <li><button type="button" data-jump="s7"><span>7</span>Homework</button></li>
+    </ol>
+  </nav>
+
+  <div class="callout read">
+    <h3>Read first</h3>
+    <ul>
+      <li>The Go blog, <a href="https://go.dev/blog/race-detector" target="_blank" rel="noopener">&ldquo;Introducing the Go Race Detector&rdquo;</a>, and the <a href="https://go.dev/doc/articles/race_detector" target="_blank" rel="noopener">race detector article</a> (its &ldquo;Runtime Overhead&rdquo; section has the numbers used here).</li>
+      <li><a href="https://go.dev/ref/mem" target="_blank" rel="noopener">The Go Memory Model</a>, the first two sections only (&ldquo;Advice&rdquo; and &ldquo;Informal Overview&rdquo;).</li>
+      <li>The Go wiki, <a href="https://go.dev/wiki/MutexOrChannel" target="_blank" rel="noopener">&ldquo;Use a sync.Mutex or a channel?&rdquo;</a>. Short.</li>
+      <li><em>Learn Go with Tests</em>, &ldquo;Sync&rdquo; (done).</li>
+    </ul>
+  </div>
+
+  <!-- ================================================================ -->
+  <section id="s1">
+    <h2><span class="sec">&sect;1</span>Three ways concurrent code goes wrong</h2>
+    <p>&ldquo;Thread-safe&rdquo; hides several different failures. Name them separately, because different tools catch each one.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Failure</th><th>What happens</th><th>What catches it</th></tr></thead>
+        <tbody>
+          <tr><td>Data race</td><td>Two goroutines access the same memory, at least one writes, and nothing orders the accesses (no lock, channel, or atomic). In Go, a race on a map can crash the process outright (&ldquo;concurrent map writes&rdquo;).</td><td><code>-race</code>, when the racing accesses actually happen during the run.</td></tr>
+          <tr><td>Atomicity violation (race condition)</td><td>Each access is properly locked, but a multi-step operation isn't. Example: &ldquo;check whether the device exists&rdquo; and &ldquo;insert&rdquo; as two separate locked calls; another goroutine acts in between.</td><td>Not <code>-race</code>: every access is synchronized. Design review, and tests that force the interleaving.</td></tr>
+          <tr><td>Aliasing (escaped state)</td><td>The lock is held correctly inside the method, but a reference to the guarded data leaves it. The caller then reads or writes it without the lock.</td><td>A contract test that mutates what it got back and checks the store didn't change. <code>-race</code> only if a concurrent writer happens to overlap.</td></tr>
+          <tr><td>Deadlock</td><td>Goroutines wait on each other forever.</td><td>The runtime only if <em>every</em> goroutine is blocked (&ldquo;all goroutines are asleep&rdquo;). A partial deadlock shows up as a test timeout.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Note the vocabulary: a <strong>data race</strong> is a precise memory-model term. A <strong>race
+      condition</strong> is the broader idea that the outcome depends on timing. You can have a race
+      condition with no data race.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s2">
+    <h2><span class="sec">&sect;2</span>What <code>-race</code> proves</h2>
+    <p>
+      Go's race detector is built on ThreadSanitizer. It instruments every memory access and tracks
+      <em>happens-before</em> relationships created by locks, channels, and <code>sync</code> primitives.
+      When two accesses to the same address aren't ordered by happens-before and one is a write, it
+      reports a race with both stack traces.
+    </p>
+    <ul>
+      <li><strong>It's dynamic.</strong> It only sees code paths that actually execute during this run, and only interleavings that actually occur. A race in an untested path, or one that needs a timing your test never produces, goes unreported. A clean run is evidence, not proof.</li>
+      <li><strong>It has no false positives in practice.</strong> If it reports a race, there is one. Fix it; don't argue with it.</li>
+      <li><strong>It doesn't see logic.</strong> Atomicity violations, aliasing that never overlaps a writer in the test, deadlocks, and wrong results are all invisible to it.</li>
+      <li><strong>It's expensive.</strong> The Go docs give typical overhead as 5&ndash;10&times; memory and 2&ndash;20&times; execution time. That's why it runs in CI and in a dedicated <code>mise run test telemetry-svc --race</code>, not in production.</li>
+    </ul>
+    <p>
+      So <code>-race</code> needs tests that actually run goroutines concurrently against the shared
+      state. A race-clean suite of single-goroutine tests proves almost nothing about concurrency.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s3">
+    <h2><span class="sec">&sect;3</span>The slice that escapes the lock</h2>
+    <p>
+      A Go slice is a small header: a pointer to a backing array, a length, and a capacity. Returning a
+      slice copies the header, not the array. If <code>GetByDeviceID</code> returned the slice stored in
+      the map, the caller and the store would share one backing array.
+    </p>
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 700 220" role="img" aria-label="Two slice headers pointing at one backing array; the store appends while the caller reads">
+          <rect class="d-soft" x="20" y="20" width="160" height="60" rx="6"/>
+          <text class="d-tb" x="34" y="44">store's slice</text>
+          <text class="d-tm" x="34" y="66">ptr &middot; len 3 &middot; cap 4</text>
+          <rect class="d-soft" x="20" y="130" width="160" height="60" rx="6"/>
+          <text class="d-tb" x="34" y="154">caller's copy</text>
+          <text class="d-tm" x="34" y="176">ptr &middot; len 3 &middot; cap 4</text>
+          <rect class="d-box" x="300" y="80" width="80" height="50"/>
+          <rect class="d-box" x="380" y="80" width="80" height="50"/>
+          <rect class="d-box" x="460" y="80" width="80" height="50"/>
+          <rect class="d-warn" x="540" y="80" width="80" height="50"/>
+          <text class="d-tm" x="330" y="110">r1</text>
+          <text class="d-tm" x="410" y="110">r2</text>
+          <text class="d-tm" x="490" y="110">r3</text>
+          <text class="d-twarn" x="556" y="110">r4 ?</text>
+          <text class="d-ts" x="300" y="70">one backing array</text>
+          <path class="d-line" d="M180,50 C240,50 250,90 296,100" marker-end="url(#ah)"/>
+          <path class="d-line" d="M180,160 C240,160 250,120 296,112" marker-end="url(#ah)"/>
+          <path class="d-badl" d="M580,40 L580,74" marker-end="url(#ah-bad)"/>
+          <text class="d-tbad" x="520" y="32">Insert appends here, under the lock</text>
+          <text class="d-tbad" x="330" y="160">caller reads Metrics with no lock</text>
+          <text class="d-ts" x="330" y="180">&hellip; and each record's Metrics is its own shared slice</text>
+        </svg>
+      </div>
+      <figcaption><b>Fig 3.1</b>Two headers, one array. A mutex only protects what happens while it's held; the caller's reads happen after it's released.</figcaption>
+    </figure>
+    <p>
+      The mutex protects the critical section. Once the method returns and unlocks, nothing stops
+      <code>Insert</code> from appending into spare capacity in the same array, or a caller from writing
+      into it. That is a data race the lock can't see, because one side never takes the lock.
+    </p>
+    <p>
+      <strong>Why <code>slices.Clone</code> isn't enough.</strong> It copies the outer slice of
+      <code>Telemetry</code> values, but each value contains <code>Metrics</code>, which is itself a slice
+      header pointing at a shared array. A shallow clone still leaks every record's metrics. The store
+      therefore deep-copies: a new outer slice, and a cloned <code>Metrics</code> per record. The
+      <code>StorerContract</code> leak case mutates both <code>DeviceID</code> and a <code>Metrics</code>
+      element on what it got back, so a regression to a shallow clone fails a test.
+    </p>
+    <p>
+      The general rule: <strong>a lock protects data only if no reference to that data leaves the
+      lock.</strong> Copy on the way out, or hand out immutable values.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s4">
+    <h2><span class="sec">&sect;4</span>How you know the store is safe</h2>
+    <p>Three kinds of evidence, each covering a different failure from &sect;1:</p>
+    <ol>
+      <li><strong>By construction.</strong> Every access to the map happens with the mutex held, and nothing that points into the map is returned. You can check this by reading two methods.</li>
+      <li><strong>By the race detector.</strong> Tests that hammer the store from many goroutines, run with <code>-race</code>, catch data races that actually occur.</li>
+      <li><strong>By the contract.</strong> The leak case catches aliasing deterministically, no timing luck needed, and it will run against Postgres at M4 too.</li>
+    </ol>
+    <p>
+      Two failures, two tools, which is the shape of a good answer: data races are caught by
+      <code>-race</code>; escaped references are caught by a deterministic mutation test.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s5">
+    <h2><span class="sec">&sect;5</span>Mutex or owning goroutine</h2>
+    <p>
+      Go's proverb is &ldquo;don't communicate by sharing memory; share memory by communicating.&rdquo; The
+      alternative to a mutex is a single goroutine that owns the map. Everyone else sends it requests over
+      a channel and gets answers back. This is the <strong>actor</strong> or <strong>monitor goroutine</strong>
+      pattern, and it applies the <strong>single-writer principle</strong>: only one goroutine ever touches
+      the state, so no lock is needed.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th></th><th>Mutex</th><th>Owning goroutine</th></tr></thead>
+        <tbody>
+          <tr><td>Code</td><td>A few lines. Easy to read.</td><td>A request type, a reply channel, a loop, a shutdown path.</td></tr>
+          <tr><td>Cost per operation</td><td>Uncontended lock: tens of nanoseconds.</td><td>Two channel operations and a goroutine switch: noticeably more.</td></tr>
+          <tr><td>Concurrency of reads</td><td>Can use <code>RWMutex</code> to allow parallel readers.</td><td>Fully serialized.</td></tr>
+          <tr><td>Multi-step invariants</td><td>Easy to get wrong (&sect;1, atomicity).</td><td>Natural: each request runs to completion alone.</td></tr>
+          <tr><td>Backpressure and lifecycle</td><td>None built in.</td><td>The mailbox is a queue; its capacity is a backpressure point, and the goroutine has a clear lifecycle.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      For a map with insert and lookup, a mutex is the right tool, and the Go wiki says the same:
+      channels for passing ownership and coordinating work, mutexes for guarding a cache or state.
+      <strong>When to switch:</strong> when operations need invariants that span several steps, when the
+      owner has to do slow work (I/O) in order, or when sharding the state by key lets each owner run
+      without contention (one goroutine per shard). That last one is what per-worker queues would have
+      needed in Chapter 1 &sect;5 to actually remove the store's mutex.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s6">
+    <h2><span class="sec">&sect;6</span>Buffered vs. unbuffered under a burst</h2>
+    <p>
+      Chapter 1 &sect;3 showed that an unbuffered channel stores nothing: a send completes only when a
+      receiver takes it. That changes what a burst does to the handler.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Channel</th><th>With a blocking send</th><th>With a non-blocking send (shed when you can't)</th></tr></thead>
+        <tbody>
+          <tr><td>Unbuffered</td><td>Every request waits for an idle worker. Handler latency includes the wait for a worker, so p99 latency tracks the burst. Goroutines pile up.</td><td>Every request arriving while all N workers are busy is shed. Even a tiny burst produces <code>503</code>s.</td></tr>
+          <tr><td>Buffered (capacity C)</td><td>Requests return in microseconds until the buffer fills, then wait like unbuffered. Tail latency is low for short bursts and unbounded for long ones.</td><td>Up to C requests are absorbed instantly; shedding starts only once the buffer is full. Latency stays flat; the cost moves to staleness (time in queue).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      A buffer doesn't make work faster. It moves where waiting happens: from the client's request
+      (latency) to the reading's time in the queue (staleness). For a fire-and-forget <code>202</code>,
+      that's the right place for it. Who closes the channel, and why it can't be the senders, is
+      Chapter 1 &sect;6.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s7">
+    <h2><span class="sec">&sect;7</span>Homework</h2>
+    <p><a href="#hw03">Homework 3</a> covers this chapter.</p>
+  </section>
+
+</article>
+</div>

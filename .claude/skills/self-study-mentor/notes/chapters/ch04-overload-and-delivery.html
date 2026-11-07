@@ -1,0 +1,251 @@
+<div class="chapter-root">
+<article class="chapter">
+
+  <header>
+    <p class="eyebrow">Chapter 4 &middot; Milestone 2</p>
+    <h1>Overload, Retries, and What 202 Promises</h1>
+    <p class="lede">
+      Chapter 1 built the queue. This chapter is about the contract around it: what the caller has
+      been told, what can still disappear, what overload does under each policy, and what a well-behaved
+      device does when it's refused.
+    </p>
+  </header>
+
+  <nav class="contents" aria-label="Sections">
+    <p class="eyebrow">In this chapter</p>
+    <ol>
+      <li><button type="button" data-jump="s1"><span>1</span>What 202 promises</button></li>
+      <li><button type="button" data-jump="s2"><span>2</span>Fire-and-forget vs. group commit</button></li>
+      <li><button type="button" data-jump="s3"><span>3</span>Measuring what you lose</button></li>
+      <li><button type="button" data-jump="s4"><span>4</span>The end-to-end argument</button></li>
+      <li><button type="button" data-jump="s5"><span>5</span>Block, shed, or drop</button></li>
+      <li><button type="button" data-jump="s6"><span>6</span>Open systems, and real backpressure</button></li>
+      <li><button type="button" data-jump="s7"><span>7</span>Retries, backoff, and jitter</button></li>
+      <li><button type="button" data-jump="s8"><span>8</span>Why buffer in memory at all</button></li>
+      <li><button type="button" data-jump="s9"><span>9</span>Homework</button></li>
+    </ol>
+  </nav>
+
+  <div class="callout read">
+    <h3>Read first</h3>
+    <ul>
+      <li>Saltzer, Reed &amp; Clark, <a href="https://web.mit.edu/Saltzer/www/publications/endtoend/endtoend.pdf" target="_blank" rel="noopener">&ldquo;End-to-End Arguments in System Design&rdquo;</a> (1984). Read the first three pages and the &ldquo;careful file transfer&rdquo; example.</li>
+      <li>Marc Brooker, <a href="https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/" target="_blank" rel="noopener">&ldquo;Exponential Backoff and Jitter&rdquo;</a> (AWS Architecture Blog). Short, with graphs.</li>
+      <li>Google SRE book ch. 22, the &ldquo;Retries&rdquo; section (already assigned).</li>
+      <li><a href="https://www.rfc-editor.org/rfc/rfc9110#name-202-accepted" target="_blank" rel="noopener">RFC 9110 &sect;15.3.3, &ldquo;202 Accepted&rdquo;</a>. One paragraph.</li>
+    </ul>
+  </div>
+
+  <!-- ================================================================ -->
+  <section id="s1">
+    <h2><span class="sec">&sect;1</span>What 202 promises</h2>
+    <p>
+      RFC 9110 defines <code>202 Accepted</code> as: the request has been accepted for processing, but the
+      processing has not been completed, and it may or may not eventually be acted upon. HTTP itself
+      makes no stronger promise. Your Spec's port doc says what yours means: the reading was valid and is
+      queued, it should become queryable, and it could still be lost.
+    </p>
+    <div class="callout loss">
+      <h3>What can still be lost after a 202</h3>
+      <ul>
+        <li>A crash, panic, out-of-memory kill, or <code>SIGKILL</code> while readings are queued.</li>
+        <li>A deploy whose drain runs past the deadline (Kubernetes' default grace period is 30 s).</li>
+        <li>From M3 on: a write to the destination that fails after acceptance, if retries are exhausted and there's no dead-letter path.</li>
+      </ul>
+    </div>
+    <p>
+      This is <strong>at-most-once delivery</strong>: each accepted reading is stored once or not at all.
+      The device never retries, because it was told the reading was accepted.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s2">
+    <h2><span class="sec">&sect;2</span>Fire-and-forget vs. group commit</h2>
+    <p>
+      On 2026-10-09 you weighed three options. Here they are side by side:
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Option</th><th>When the 202 goes out</th><th>Gains</th><th>Costs</th></tr></thead>
+        <tbody>
+          <tr><td>Synchronous write</td><td>After the store write</td><td>A 202 means stored. Simplest semantics.</td><td>Handler latency includes the write; a slow store backs up into every client.</td></tr>
+          <tr><td>Group commit</td><td>After the batch containing this reading is written</td><td>A 202 means stored, and writes are batched for throughput.</td><td>Each handler waits on a reply channel for up to one batch interval. More moving parts.</td></tr>
+          <tr><td><strong>Fire-and-forget</strong> (chosen)</td><td>After the reading is in the queue</td><td>Lowest latency; simple handler; workers batch freely.</td><td>At-most-once. Reliability after the 202 is entirely the server's job. The Spec has to poll.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>Group commit</strong> is a real, named technique: databases use it to share one disk flush
+      among many transactions (Postgres's <code>commit_delay</code>), and a Kafka producer with
+      <code>acks=all</code> and <code>linger.ms</code> does the same thing over the network.
+    </p>
+    <p>
+      <strong>What would make you switch.</strong> The reversal conditions you wrote down: telemetry that
+      includes alarm events or other readings that can't be replaced by the next sample, or a measured loss
+      rate that isn't small. (Counters, interestingly, make at-most-once <em>safer</em>: see Chapter 9 &sect;6.)
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s3">
+    <h2><span class="sec">&sect;3</span>Measuring what you lose</h2>
+    <p>&ldquo;Some loss is acceptable&rdquo; is only a decision once it's a number. Three ways to get it, from cheapest to most complete:</p>
+    <ol>
+      <li><strong>Server-side counters.</strong> Count readings accepted, written, and shed. At shutdown, record how many were still queued when the deadline hit. Accepted minus written, over time, is the loss the server knows about. It can't count what a crash took, because the counter dies with the process.</li>
+      <li><strong>Reconciliation.</strong> Compare a count from the producer side (devices, or a load generator) with what's in the store for the same window.</li>
+      <li><strong>Sequence numbers.</strong> Each device numbers its readings. A gap in a device's sequence at the destination is a lost reading, whatever caused it, including crashes. This is the end-to-end check from &sect;4.</li>
+    </ol>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s4">
+    <h2><span class="sec">&sect;4</span>The end-to-end argument</h2>
+    <p>
+      Saltzer, Reed and Clark (1984): a function like &ldquo;make sure the data arrived intact&rdquo; can
+      only be completely and correctly implemented with the knowledge and help of the application at the
+      endpoints. Building it into a lower layer can improve performance, but it can't replace the check at
+      the ends. Their example is file transfer: a reliable network doesn't help if the disk at the far end
+      corrupts the file, so the application has to verify a checksum end to end anyway.
+    </p>
+    <p>
+      Applied to your <code>202</code>: the queue, the drain, and later SQS all raise the odds that a
+      reading arrives. None of them can <em>guarantee</em> it, because each only knows about its own hop.
+      If a device truly needs to know its data was stored, the evidence has to come from the destination:
+      sequence numbers checked where the data lands, or an acknowledgement sent only after a durable write.
+    </p>
+    <p>
+      You already used this argument once. In Chapter 1 &sect;5, ordering is stamped at the source
+      (timestamps) and restored at the destination (sort on read), instead of being carried through every
+      hop of the pipeline.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s5">
+    <h2><span class="sec">&sect;5</span>Block, shed, or drop</h2>
+    <p>Three policies for a full queue, under sustained overload (arrivals faster than writes for a long time):</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Policy</th><th>Latency</th><th>Memory</th><th>What the client sees</th></tr></thead>
+        <tbody>
+          <tr><td>Block</td><td>Grows without bound. Every request waits behind the full queue.</td><td>Grows: each waiting request holds a goroutine, a connection, and its body.</td><td>Slow successes, then timeouts. Clients that time out and retry add more load: a cascading failure.</td></tr>
+          <tr><td>Shed (chosen)</td><td>Stays low. Refusals are immediate.</td><td>Bounded by queue capacity.</td><td>An honest <code>503</code> it can act on. The loss is visible at the boundary.</td></tr>
+          <tr><td>Drop</td><td>Stays low.</td><td>Bounded.</td><td>A <code>202</code> for a reading that is then thrown away. Loss is invisible to the client and, without a counter, to you.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Shedding and fire-and-forget fit together. A shed happens <em>before</em> acceptance, so it doesn't
+      break any promise. Drop breaks the promise silently, which is the worst of the three for a system
+      that claims <code>202</code> means accepted.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s6">
+    <h2><span class="sec">&sect;6</span>Open systems, and real backpressure</h2>
+    <p>
+      Queueing theory separates two kinds of load:
+    </p>
+    <ul>
+      <li><strong>Closed system:</strong> a fixed population of clients, each waiting for a response before sending its next request. If the server slows down, arrivals slow down too. Slowness is self-limiting.</li>
+      <li><strong>Open system:</strong> arrivals don't depend on how fast you respond. New requests keep coming at their own rate. Devices on a timer are an open system: a thermostat sends every 30 seconds whether or not you answered the last one.</li>
+    </ul>
+    <p>
+      That's why blocking fails for Athenas. In a closed system, blocking is backpressure: it slows the
+      producers. In an open system, blocking only makes the queue of waiting requests longer, because the
+      arrival rate doesn't change. The only way to keep an open system stable under overload is to refuse
+      work.
+    </p>
+    <h3>Is a <code>503</code> with <code>Retry-After</code> backpressure?</h3>
+    <p>
+      Mostly it's <strong>load shedding</strong>, with an advisory hint attached. True backpressure means
+      the producer <em>can't</em> proceed until the consumer is ready: a blocked send, TCP's flow-control
+      window, a pull-based consumer. <code>Retry-After</code> only asks the client to wait. A well-behaved
+      device honours it; a buggy one ignores it, and the server can't make it.
+    </p>
+    <h3>Where you get real backpressure in this project</h3>
+    <ul>
+      <li><strong>Inside the engine:</strong> between workers and the store. A slow store blocks workers, which stop taking from the queue, which fills, which triggers shedding at the edge. Backpressure inside the process turns into shedding at the open boundary.</li>
+      <li><strong>At M5, with Kafka:</strong> consumers <em>pull</em>. A consumer that's falling behind pauses its partitions and fetches nothing more until it catches up. That's a closed loop, so it's real backpressure. It works there because Kafka holds the backlog durably on disk, so slowing down costs lag, not data.</li>
+    </ul>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s7">
+    <h2><span class="sec">&sect;7</span>Retries, backoff, and jitter</h2>
+    <h3>What to retry</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Response</th><th>Whose fault</th><th>Retry?</th></tr></thead>
+        <tbody>
+          <tr><td><code>400</code> invalid telemetry</td><td>Caller</td><td>No. It will fail the same way every time. Drop it and log it.</td></tr>
+          <tr><td><code>503</code> queue full</td><td>Server, transient</td><td>Yes, after <code>Retry-After</code>, with backoff.</td></tr>
+          <tr><td><code>429</code> over your limit</td><td>Caller's rate, transient</td><td>Yes, after <code>Retry-After</code>. Slow down.</td></tr>
+          <tr><td>Timeout, connection reset</td><td>Unknown</td><td>Yes, if a duplicate is tolerable. The server may have accepted it.</td></tr>
+          <tr><td><code>500</code></td><td>Server</td><td>Cautiously, with a small budget. It may be a bug that fails forever.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The timeout row is the subtle one. A timed-out request may have succeeded, so retrying it can store
+      a reading twice. Retries turn at-most-once into <strong>at-least-once</strong>, and at-least-once
+      needs either idempotent writes or duplicate tolerance (a natural key such as device ID plus
+      timestamp). This is M3's main topic (Chapter 10 &sect;1).
+    </p>
+    <h3>Exponential backoff with jitter</h3>
+    <p>
+      <strong>Exponential backoff</strong> doubles the wait after each failure (for example 100 ms, 200 ms,
+      400 ms, up to a cap), so a struggling server gets progressively more room. Without
+      <strong>jitter</strong>, clients that failed together retry together: after an outage, a fleet of
+      devices that all reconnected at the same moment retries in synchronized waves, and each wave
+      knocks the server over again. That's a <strong>thundering herd</strong>. Jitter randomizes each wait
+      (Brooker's &ldquo;full jitter&rdquo; picks uniformly between zero and the backoff value), which spreads
+      the retries out so the server sees a smooth rate instead of spikes.
+    </p>
+    <h3>Retry budgets</h3>
+    <p>
+      SRE ch. 22's warning: retries multiply across layers. If three layers each try up to four times,
+      one user request can become 4 &times; 4 &times; 4 = 64 requests at the bottom, exactly when the
+      bottom is overloaded. Limit retries per request, retry at one layer only, and cap retries as a
+      fraction of normal traffic.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s8">
+    <h2><span class="sec">&sect;8</span>Why buffer in memory at all</h2>
+    <p>
+      At M3 the destination is SQS. Why not have the handler write straight to SQS and return
+      <code>202</code> after that?
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th></th><th>Handler writes to SQS directly</th><th>Buffer in memory, workers write to SQS</th></tr></thead>
+        <tbody>
+          <tr><td>Latency per request</td><td>Includes an SQS round trip (tens of milliseconds).</td><td>Microseconds.</td></tr>
+          <tr><td>Cost</td><td>SQS bills per request. One message per call is the most expensive way to use it.</td><td>Workers can batch up to 10 messages per <code>SendMessageBatch</code> call, so roughly a tenth of the requests.</td></tr>
+          <tr><td>Durability of the 202</td><td>Durable: the 202 means it's in SQS.</td><td>At-most-once until it's flushed.</td></tr>
+          <tr><td>When SQS is slow or down</td><td>Every client feels it.</td><td>The buffer absorbs a blip; then shedding starts.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>Production clients buffer in-process anyway.</strong> The Kafka producer batches records in
+      memory (<code>batch.size</code>, <code>linger.ms</code>, <code>buffer.memory</code>). The Kinesis
+      Producer Library aggregates records before sending. OpenTelemetry's batch span processor queues
+      spans and exports them in batches. Prometheus remote-write keeps an in-memory queue of samples per
+      shard. Each makes the same trade you made: a small loss window in exchange for latency and cost.
+      M4's transactional outbox is how you'd close that window if it ever matters.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s9">
+    <h2><span class="sec">&sect;9</span>Homework</h2>
+    <p><a href="#hw04">Homework 4</a> covers this chapter.</p>
+  </section>
+
+</article>
+</div>

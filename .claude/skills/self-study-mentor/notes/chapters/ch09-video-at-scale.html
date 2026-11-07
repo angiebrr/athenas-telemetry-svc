@@ -1,0 +1,274 @@
+<div class="chapter-root">
+<article class="chapter">
+
+  <header>
+    <p class="eyebrow">Chapter 9 &middot; Video track, week 3</p>
+    <h1>Video III: Delivery, Media Servers, and Scale</h1>
+    <p class="lede">
+      Live view and recorded playback want opposite things: one wants the lowest possible delay, the
+      other wants durable, seekable storage that caches well. This chapter covers how a camera product
+      serves both, what a media server and Kinesis Video Streams take off your hands, and the capacity
+      math for a fleet of a million cameras.
+    </p>
+  </header>
+
+  <nav class="contents" aria-label="Sections">
+    <p class="eyebrow">In this chapter</p>
+    <ol>
+      <li><button type="button" data-jump="s1"><span>1</span>HLS, and why it caches</button></li>
+      <li><button type="button" data-jump="s2"><span>2</span>Low-Latency HLS</button></li>
+      <li><button type="button" data-jump="s3"><span>3</span>Live and recorded in one product</button></li>
+      <li><button type="button" data-jump="s4"><span>4</span>What a media server does</button></li>
+      <li><button type="button" data-jump="s5"><span>5</span>Kinesis Video Streams, and build vs. buy</button></li>
+      <li><button type="button" data-jump="s6"><span>6</span>Stream-quality telemetry</button></li>
+      <li><button type="button" data-jump="s7"><span>7</span>The camera's own queue</button></li>
+      <li><button type="button" data-jump="s8"><span>8</span>Capacity math for 1M cameras</button></li>
+      <li><button type="button" data-jump="s9"><span>9</span>Homework</button></li>
+    </ol>
+  </nav>
+
+  <div class="callout read">
+    <h3>Read first</h3>
+    <ul>
+      <li>Kinesis Video Streams developer guide: <a href="https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/how-it-works.html" target="_blank" rel="noopener">how it works</a>, <a href="https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/how-data.html" target="_blank" rel="noopener">data model</a>, <a href="https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/hls-playback.html" target="_blank" rel="noopener">HLS playback</a>, and <a href="https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/what-is-kvswebrtc.html" target="_blank" rel="noopener">KVS with WebRTC</a>.</li>
+      <li>MistServer docs: <a href="https://docs.mistserver.org/mistserver/introduction/" target="_blank" rel="noopener">Introduction</a> and <a href="https://docs.mistserver.org/mistserver/concepts/" target="_blank" rel="noopener">Core Concepts</a>.</li>
+      <li><a href="https://datatracker.ietf.org/doc/html/rfc8216" target="_blank" rel="noopener">RFC 8216</a> &sect;3&ndash;4, skimmed; Apple's HLS docs for Low-Latency HLS.</li>
+    </ul>
+  </div>
+
+  <!-- ================================================================ -->
+  <section id="s1">
+    <h2><span class="sec">&sect;1</span>HLS, and why it caches</h2>
+    <p>
+      HTTP Live Streaming cuts video into <strong>segments</strong> (often 2&ndash;6 seconds each) and lists
+      them in a <strong>playlist</strong> (<code>.m3u8</code>). The player fetches the playlist, then the
+      segments, over plain HTTP. For live streams it re-fetches the playlist to discover new segments.
+    </p>
+    <p>
+      <strong>Latency:</strong> a segment can't be published until it's complete, and players typically
+      buffer about three segments before starting, for smooth adaptive-bitrate switching. With 6-second
+      segments that's roughly 18 seconds behind live, plus encoding and packaging. Typical HLS latency is
+      somewhere around 10&ndash;30 seconds, or about 6 with short segments and tuning.
+    </p>
+    <p>
+      <strong>Why a CDN can cache HLS and not WebRTC:</strong>
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th></th><th>HLS</th><th>WebRTC</th></tr></thead>
+        <tbody>
+          <tr><td>Per-viewer state</td><td>None. Every viewer requests the same files.</td><td>A full session per viewer: ICE, DTLS keys, SRTP encryption, congestion control, NACK and keyframe handling.</td></tr>
+          <tr><td>Caching</td><td>Standard HTTP caching. 10,000 viewers mostly hit the CDN edge, not your origin.</td><td>Nothing to cache; each viewer's packets are encrypted with that viewer's keys.</td></tr>
+          <tr><td>Cost to serve 10,000 viewers</td><td>CDN egress. Your origin serves each segment roughly once per edge.</td><td>An SFU fleet sized for 10,000 concurrent sessions and their total bitrate.</td></tr>
+          <tr><td>Latency</td><td>Seconds to tens of seconds.</td><td>Usually under 500 ms.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s2">
+    <h2><span class="sec">&sect;2</span>Low-Latency HLS</h2>
+    <p>
+      LL-HLS (Apple's extension) gets latency to roughly 2&ndash;5 seconds without giving up HTTP and CDNs.
+      Its main tools:
+    </p>
+    <ul>
+      <li><strong>Partial segments:</strong> each segment is published in small parts (a few hundred milliseconds each) as they're encoded, so players don't wait for a whole segment.</li>
+      <li><strong>Blocking playlist reload:</strong> the player asks for the playlist <em>with the next part number</em>, and the server holds the request until that part exists. No polling delay.</li>
+      <li><strong>Preload hints</strong> (request the next part before it exists) and <strong>delta playlists</strong> (send only what changed).</li>
+    </ul>
+    <p>
+      <strong>What it trades:</strong> many more HTTP requests per viewer, more load on the CDN and the
+      origin, a server that must support blocking requests, and less buffer, so more risk of stalls on a
+      bad network.
+    </p>
+    <p>
+      <strong>Why it isn't WebRTC:</strong> it still runs over TCP, so a lost packet still stalls (Chapter 8
+      &sect;3). It still buffers whole parts and keeps a playback buffer for adaptive bitrate. It still
+      has no per-packet loss handling or real-time congestion control. It's built to keep the cacheability
+      of HLS, and that caps how low it can go.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s3">
+    <h2><span class="sec">&sect;3</span>Live and recorded in one product</h2>
+    <p>
+      A camera app typically uses <strong>WebRTC for live view</strong> (you want to see who's at the door
+      now, and maybe talk back) and <strong>HLS from storage for playback</strong> (Kinesis Video Streams
+      can serve stored fragments as HLS, in live or on-demand mode). Recording wants durable, time-indexed
+      storage, seeking, and scrubbing, and none of that is what WebRTC is for.
+    </p>
+    <p>
+      <strong>Where the switch happens in the UI:</strong> usually the moment the user scrubs back on the
+      timeline, or opens an event clip. The player tears down the WebRTC session and starts an HLS session
+      for the selected time.
+    </p>
+    <p>
+      <strong>What the user sees at the boundary:</strong> a short loading spinner while the HLS session
+      starts and the first segment loads; possibly a change in quality; and, if they scrub forward to
+      &ldquo;now&rdquo; in HLS, a picture that's several seconds behind true live. So the app usually needs a
+      &ldquo;Go live&rdquo; control that switches back to WebRTC, rather than letting HLS pretend to be live.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s4">
+    <h2><span class="sec">&sect;4</span>What a media server does</h2>
+    <p>
+      A media server such as MistServer takes <strong>any protocol in and any protocol out</strong>:
+      RTMP, SRT, RTSP, or WHIP in; HLS, DASH, or WebRTC out. It mostly <strong>transmuxes</strong> (Chapter 7
+      &sect;5), which is why one server can handle many streams. It also fans one input out to many viewers,
+      records, and can enforce access.
+    </p>
+    <p><strong>Why put one between the camera and viewers instead of going P2P:</strong></p>
+    <ul>
+      <li><strong>The camera uploads once</strong>, however many people watch. Uplink and battery stay flat.</li>
+      <li><strong>Protocol translation:</strong> the camera speaks one protocol, and each viewer gets whatever suits it.</li>
+      <li><strong>One place to record, authorize, and measure</strong>, which you control.</li>
+      <li><strong>NAT traversal gets simpler:</strong> each side connects to a server with a public address instead of to each other.</li>
+    </ul>
+    <p>The cost is the server fleet itself: bandwidth, capacity planning, and operations.</p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s5">
+    <h2><span class="sec">&sect;5</span>Kinesis Video Streams, and build vs. buy</h2>
+    <h3>What KVS handles for you</h3>
+    <ul>
+      <li><strong>Ingest:</strong> the producer SDK (and the GStreamer <code>kvssink</code> plugin) pushes media as MKV fragments.</li>
+      <li><strong>Durable, time-indexed storage</strong> with a retention period you set (<code>DataRetentionInHours</code>; 0 means no storage, pass-through only).</li>
+      <li><strong>Playback:</strong> HLS and DASH sessions over stored or live fragments, and clip extraction to MP4.</li>
+      <li><strong>KVS WebRTC</strong> (a separate capability): managed signaling channels plus STUN and TURN. With WebRTC ingestion, one session can serve live viewers and record to a stream.</li>
+    </ul>
+    <h3>What's left for you to build</h3>
+    <ul>
+      <li>Device identity, provisioning, and credentials for every camera.</li>
+      <li>Authorization: which user may watch which camera.</li>
+      <li>Event detection, and the metadata index of which events happened when (KVS stores media; it doesn't know a doorbell rang).</li>
+      <li>The app and player, the live/recorded switch (&sect;3), and cost controls.</li>
+      <li>Fan-out beyond KVS WebRTC's per-channel viewer limits. Check the current quotas before designing around them.</li>
+    </ul>
+    <h3>Choosing a retention period</h3>
+    <p>
+      Retention is a product, legal, and cost decision at once. Storage cost grows linearly with retention
+      days and with how much you record. Subscription tiers often map to retention (for example 30 vs. 60
+      days). Privacy cuts the other way: deleting sooner is a feature, and some jurisdictions require it.
+    </p>
+    <p>
+      <strong>Event-triggered recording</strong> changes the bill most. Recording only around motion or
+      doorbell events stores minutes per day instead of 24 hours (&sect;8 has the numbers). The catch is the
+      moment before the event: to include it, the camera keeps a few seconds of <strong>pre-roll</strong> in
+      a ring buffer, the same structure as Chapter 1 &sect;3, and uploads it when the event fires.
+    </p>
+    <h3>Build vs. buy: Mist for live, KVS for recording</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th></th><th>Self-hosted media server (Mist)</th><th>Managed (KVS)</th></tr></thead>
+        <tbody>
+          <tr><td>Gains</td><td>Control over protocols, latency, and features; cost advantage at large, steady scale; no per-GB service fee.</td><td>Durability, scaling, and retention handled; no fleet to run; pay as you go.</td></tr>
+          <tr><td>Costs</td><td>Operations: capacity, upgrades, failover, on-call.</td><td>Per-GB pricing that grows with the fleet; service quotas; vendor lock-in.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>What would make you consolidate:</strong> one system covering both well enough (for example
+      KVS WebRTC with ingestion serving live and recording together), operations cost of running two
+      systems exceeding the savings, or scale at which owning storage is clearly cheaper. The split itself
+      is defensible: each half is optimized for its job.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s6">
+    <h2><span class="sec">&sect;6</span>Stream-quality telemetry</h2>
+    <h3>What goes on a dashboard, and what pages</h3>
+    <p>Fleet-level, aggregated signals (Chapter 6's RED and USE, applied to video):</p>
+    <ul>
+      <li>Session setup success rate, and time to first frame (p50/p95).</li>
+      <li>TURN usage fraction (Chapter 8 &sect;2).</li>
+      <li>Freeze rate and total freeze time per viewing minute; packet loss, round-trip time, and bitrate distributions.</li>
+      <li>Recording upload lag and failed fragment rate.</li>
+    </ul>
+    <p>
+      <strong>Page on:</strong> symptoms users feel, sustained against an SLO: setup failure rate and
+      time-to-first-frame burning budget, or recording ingest failing. Everything else goes on the dashboard.
+      Never put <code>device_id</code> or SSRC in a metric label: a million cameras means millions of series,
+      and SSRCs are random per stream, so they churn constantly (Chapter 6 &sect;2). Per-camera detail
+      belongs in logs, traces, or a per-device store like Athenas.
+    </p>
+    <h3>Counters, not rates</h3>
+    <p>
+      <code>getStats()</code> returns mostly <strong>cumulative counters</strong>
+      (<code>bytesReceived</code>, <code>packetsLost</code>, <code>framesDropped</code>) and a few gauges
+      (<code>jitter</code>, <code>roundTripTime</code>). Two ways to ship them:
+    </p>
+    <ul>
+      <li><strong>Ship the raw counters.</strong> A lost sample only costs resolution: the next sample still contains everything that happened, and the rate between any two samples can be computed at query time. This is Prometheus's <code>rate()</code> model, which also detects counter resets (a restarted connection starts again at zero).</li>
+      <li><strong>Ship deltas or rates computed on the producer.</strong> Each sample carries data no other sample has. Lose it, and that interval is gone.</li>
+    </ul>
+    <p>
+      So counters make Athenas's at-most-once delivery <em>more</em> tolerable, not less. That's worth
+      checking against the reversal condition in the 2026-10-09 decision, which named counters as a
+      reason to reconsider.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s7">
+    <h2><span class="sec">&sect;7</span>The camera's own queue</h2>
+    <p>
+      A camera's upload is slower than its encoder produces. This is the M2 question in a video setting:
+      where's the queue, what's the backpressure signal, and what drops first?
+    </p>
+    <ul>
+      <li><strong>The queue:</strong> the encoder's output buffer, the sender's pacer, and the socket's send buffer. Beyond that, the home router's buffer, where bufferbloat lives.</li>
+      <li><strong>The backpressure signal:</strong> the congestion controller's bandwidth estimate falling (Chapter 8 &sect;6), and the pacer queue growing.</li>
+      <li><strong>What drops first, in order:</strong> lower the encoder's bitrate; then resolution or frame rate; then drop frames nothing else depends on (non-reference frames or a temporal layer). Keep audio ahead of video. Never drop a keyframe and keep sending the frames that depend on it.</li>
+      <li><strong>For recording, don't drop at all:</strong> buffer to local storage (an SD card) and upload later. Live can't wait; recording can.</li>
+    </ul>
+    <p>
+      The parallel with Athenas is exact: a bounded queue, a decision about what to refuse when it's full,
+      and different answers for data that's only useful now (live, telemetry) versus data that must
+      arrive eventually (recording).
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s8">
+    <h2><span class="sec">&sect;8</span>Capacity math for 1M cameras</h2>
+    <p>
+      The method matters more than the numbers. State every assumption, compute, then say which
+      assumption the answer is most sensitive to. Illustrative assumptions:
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Quantity</th><th>Assumption</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Recording per camera, event-triggered</td><td>20 events/day &times; 30 s, at 2 Mbit/s (0.25 MB/s)</td><td>600 s &times; 0.25 MB/s = <strong>150 MB/day</strong></td></tr>
+          <tr><td>Fleet storage per day</td><td>1M cameras</td><td><strong>150 TB/day</strong></td></tr>
+          <tr><td>Stored at 30-day retention</td><td></td><td><strong>4.5 PB</strong></td></tr>
+          <tr><td>Average ingest bandwidth</td><td>150 MB/day &divide; 86,400 s &asymp; 1.7 KB/s &asymp; 14 kbit/s per camera</td><td>&asymp; <strong>14 Gbit/s</strong> fleet average</td></tr>
+          <tr><td>For comparison: 24/7 recording</td><td>1 Mbit/s continuous = 10.8 GB/day per camera</td><td><strong>10.8 PB/day</strong>, 72&times; the event-triggered figure</td></tr>
+          <tr><td>Concurrent live viewers at peak</td><td>2% of cameras watched at once, 2 Mbit/s each</td><td>20,000 streams: <strong>40 Gbit/s</strong> out of the SFU fleet, and the same into it</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>Things to say next:</strong> averages hide peaks. Events correlate in time (mornings, deliveries,
+      a storm setting off motion sensors across a region), so design ingest for a peak several times the
+      average. The answer is most sensitive to bitrate and to events per day, so codec choice (Chapter 7
+      &sect;6) and motion-detection quality are both cost levers. And recording dominates storage, while
+      live view dominates server bandwidth.
+    </p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section id="s9">
+    <h2><span class="sec">&sect;9</span>Homework</h2>
+    <p><a href="#hw09">Homework 9</a> covers this chapter.</p>
+  </section>
+
+</article>
+</div>
