@@ -2,7 +2,7 @@
 <article class="chapter">
 
   <header>
-    <p class="eyebrow">Chapter 9 &middot; Video track, week 3</p>
+    <p class="eyebrow">Chapter S3 &middot; Stretch: video streaming</p>
     <h1>Video III: Delivery, Media Servers, and Scale</h1>
     <p class="lede">
       Live view and recorded playback want opposite things: one wants the lowest possible delay, the
@@ -84,7 +84,7 @@
       bad network.
     </p>
     <p>
-      <strong>Why it isn't WebRTC:</strong> it still runs over TCP, so a lost packet still stalls (Chapter 8
+      <strong>Why it isn't WebRTC:</strong> it still runs over TCP, so a lost packet still stalls (Chapter S2
       &sect;3). It still buffers whole parts and keeps a playback buffer for adaptive bitrate. It still
       has no per-packet loss handling or real-time congestion control. It's built to keep the cacheability
       of HLS, and that caps how low it can go.
@@ -118,7 +118,7 @@
     <h2><span class="sec">&sect;4</span>What a media server does</h2>
     <p>
       A media server such as MistServer takes <strong>any protocol in and any protocol out</strong>:
-      RTMP, SRT, RTSP, or WHIP in; HLS, DASH, or WebRTC out. It mostly <strong>transmuxes</strong> (Chapter 7
+      RTMP, SRT, RTSP, or WHIP in; HLS, DASH, or WebRTC out. It mostly <strong>transmuxes</strong> (Chapter S1
       &sect;5), which is why one server can handle many streams. It also fans one input out to many viewers,
       records, and can enforce access.
     </p>
@@ -160,7 +160,7 @@
       <strong>Event-triggered recording</strong> changes the bill most. Recording only around motion or
       doorbell events stores minutes per day instead of 24 hours (&sect;8 has the numbers). The catch is the
       moment before the event: to include it, the camera keeps a few seconds of <strong>pre-roll</strong> in
-      a ring buffer, the same structure as Chapter 1 &sect;3, and uploads it when the event fires.
+      a ring buffer, the same structure as Chapter 3 &sect;3, and uploads it when the event fires.
     </p>
     <h3>Build vs. buy: Mist for live, KVS for recording</h3>
     <div class="tablewrap">
@@ -187,7 +187,7 @@
     <p>Fleet-level, aggregated signals (Chapter 6's RED and USE, applied to video):</p>
     <ul>
       <li>Session setup success rate, and time to first frame (p50/p95).</li>
-      <li>TURN usage fraction (Chapter 8 &sect;2).</li>
+      <li>TURN usage fraction (Chapter S2 &sect;2).</li>
       <li>Freeze rate and total freeze time per viewing minute; packet loss, round-trip time, and bitrate distributions.</li>
       <li>Recording upload lag and failed fragment rate.</li>
     </ul>
@@ -224,7 +224,7 @@
     </p>
     <ul>
       <li><strong>The queue:</strong> the encoder's output buffer, the sender's pacer, and the socket's send buffer. Beyond that, the home router's buffer, where bufferbloat lives.</li>
-      <li><strong>The backpressure signal:</strong> the congestion controller's bandwidth estimate falling (Chapter 8 &sect;6), and the pacer queue growing.</li>
+      <li><strong>The backpressure signal:</strong> the congestion controller's bandwidth estimate falling (Chapter S2 &sect;6), and the pacer queue growing.</li>
       <li><strong>What drops first, in order:</strong> lower the encoder's bitrate; then resolution or frame rate; then drop frames nothing else depends on (non-reference frames or a temporal layer). Keep audio ahead of video. Never drop a keyframe and keep sending the frames that depend on it.</li>
       <li><strong>For recording, don't drop at all:</strong> buffer to local storage (an SD card) and upload later. Live can't wait; recording can.</li>
     </ul>
@@ -258,7 +258,7 @@
     <p>
       <strong>Things to say next:</strong> averages hide peaks. Events correlate in time (mornings, deliveries,
       a storm setting off motion sensors across a region), so design ingest for a peak several times the
-      average. The answer is most sensitive to bitrate and to events per day, so codec choice (Chapter 7
+      average. The answer is most sensitive to bitrate and to events per day, so codec choice (Chapter S1
       &sect;6) and motion-detection quality are both cost levers. And recording dominates storage, while
       live view dominates server bandwidth.
     </p>
@@ -267,7 +267,7 @@
   <!-- ================================================================ -->
   <section id="s9">
     <h2><span class="sec">&sect;9</span>Homework</h2>
-    <p><a href="#hw09">Homework 9</a> covers this chapter.</p>
+    <p><a href="#hws3">Homework S3</a> covers this chapter.</p>
   </section>
 
 </article>

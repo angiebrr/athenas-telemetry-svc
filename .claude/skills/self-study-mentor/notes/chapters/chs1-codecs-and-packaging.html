@@ -2,7 +2,7 @@
 <article class="chapter">
 
   <header>
-    <p class="eyebrow">Chapter 7 &middot; Video track, week 1</p>
+    <p class="eyebrow">Chapter S1 &middot; Stretch: video streaming</p>
     <h1>Video I: Codecs, GOPs, and Containers</h1>
     <p class="lede">
       Before any protocol matters, video has to get roughly two hundred times smaller. This chapter
@@ -79,7 +79,7 @@
           <tr><td>Join time</td><td>Fast. A new viewer can only start decoding at a keyframe, so it waits up to one GOP.</td><td>Slow. A viewer may stare at a blank player for seconds.</td></tr>
           <tr><td>Seek</td><td>Precise. Playback can only start cleanly at a keyframe.</td><td>Coarse, or the player must decode from an earlier keyframe.</td></tr>
           <tr><td>Bandwidth</td><td>Higher. Keyframes are expensive.</td><td>Lower for the same quality.</td></tr>
-          <tr><td>Recovery after loss</td><td>Fast. A corrupted reference only lasts until the next keyframe.</td><td>Slow, unless the receiver asks for a keyframe (PLI/FIR, Chapter 8 &sect;5).</td></tr>
+          <tr><td>Recovery after loss</td><td>Fast. A corrupted reference only lasts until the next keyframe.</td><td>Slow, unless the receiver asks for a keyframe (PLI/FIR, Chapter S2 &sect;5).</td></tr>
           <tr><td>Segmenting (HLS)</td><td>Segments must start on a keyframe, so the GOP has to divide the segment length.</td><td>Forces long segments, which means more latency.</td></tr>
         </tbody>
       </table>
@@ -116,7 +116,7 @@
       <strong>Why the container matters for recording:</strong> a recorder can crash. A plain MP4 whose
       index would have been written at the end is unplayable if the writer dies first, so a 10-minute
       recording becomes zero minutes. Streaming containers (MPEG-TS, fMP4, MKV) are written as independent
-      pieces, so a crash only loses the last piece. That's the same at-most-once thinking as Chapter 1,
+      pieces, so a crash only loses the last piece. That's the same at-most-once thinking as Chapter 3,
       applied to files.
     </p>
   </section>
@@ -172,7 +172,7 @@
     <p>
       For a fleet today, H.264 is the default answer because it's the only codec that's both hardware-encoded
       everywhere and playable everywhere, including in HLS and WebRTC. HEVC or AV1 save bandwidth and storage
-      (which matters at fleet scale, Chapter 9 &sect;8), but only on hardware that supports them, and they may
+      (which matters at fleet scale, Chapter S3 &sect;8), but only on hardware that supports them, and they may
       force transcoding for viewers who can't decode them. That turns a bandwidth saving into a compute cost.
     </p>
   </section>
@@ -180,7 +180,7 @@
   <!-- ================================================================ -->
   <section id="s7">
     <h2><span class="sec">&sect;7</span>Homework</h2>
-    <p><a href="#hw07">Homework 7</a> covers this chapter.</p>
+    <p><a href="#hws1">Homework S1</a> covers this chapter.</p>
   </section>
 
 </article>

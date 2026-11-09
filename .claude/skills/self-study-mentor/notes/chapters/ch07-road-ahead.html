@@ -2,12 +2,12 @@
 <article class="chapter">
 
   <header>
-    <p class="eyebrow">Chapter 10 &middot; Milestones 3&ndash;7, previewed</p>
+    <p class="eyebrow">Chapter 7 &middot; Milestones 3&ndash;7, previewed</p>
     <h1>The Road Ahead: Delivery to DORA</h1>
     <p class="lede">
       One section per remaining milestone, each built around the questions it will be asked about.
       This is a map, not the territory: each milestone will get its own full chapter when it opens.
-      The point now is to see that every one of them is Chapter 1's queue again, at a larger scale.
+      The point now is to see that every one of them is Chapter 3's queue again, at a larger scale.
     </p>
   </header>
 
@@ -72,7 +72,7 @@
     </p>
     <p>
       FIFO queues add ordering per message group and deduplication within a 5-minute window, at the cost of
-      lower throughput limits. Your Chapter 1 &sect;5 decision (no order through the pipeline, sort on read)
+      lower throughput limits. Your Chapter 3 &sect;5 decision (no order through the pipeline, sort on read)
       means standard queues are fine.
     </p>
   </section>
@@ -107,8 +107,8 @@
       <li><strong>Ordering</strong> across relays needs care.</li>
     </ul>
     <p>
-      It also closes Chapter 1 &sect;6's crash window: the <code>202</code> can go out after a durable write.
-      The outbox is a durable queue drained by workers, which is Chapter 1 again.
+      It also closes Chapter 3 &sect;6's crash window: the <code>202</code> can go out after a durable write.
+      The outbox is a durable queue drained by workers, which is Chapter 3 again.
     </p>
   </section>
 
@@ -124,7 +124,7 @@
       <strong>Partition ordering vs. throughput:</strong> order is guaranteed only <em>within</em> a
       partition. More partitions mean more consumers can work in parallel, so more throughput, but no order
       across partitions. A group's parallelism is capped at its partition count. Keying by device keeps each
-      device's records in order (Chapter 1's Fig 1.4, right side), with the same hot-partition risk if one key
+      device's records in order (Chapter 3's Fig 3.4, right side), with the same hot-partition risk if one key
       is very busy.
     </p>
     <p>
@@ -168,7 +168,7 @@
     <p>
       The alternative is to coordinate less: each pod enforces a local share of the limit and syncs
       occasionally. That's cheaper and more available, but approximate. It's the same consistency-for-cost
-      trade that runs through the whole curriculum. This is also where the <code>429</code> from Chapter 1
+      trade that runs through the whole curriculum. This is also where the <code>429</code> from Chapter 3
       &sect;4 finally arrives.
     </p>
   </section>
@@ -207,7 +207,7 @@
   <!-- ================================================================ -->
   <section id="s6">
     <h2><span class="sec">&sect;6</span>Homework</h2>
-    <p><a href="#hw10">Homework 10</a> covers this chapter.</p>
+    <p><a href="#hw07">Homework 7</a> covers this chapter.</p>
   </section>
 
 </article>

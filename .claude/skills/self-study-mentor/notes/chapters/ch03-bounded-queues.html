@@ -19,7 +19,7 @@
 <article class="chapter">
 
   <header>
-    <p class="eyebrow">Chapter 1 &middot; Milestone 2, phase 2 (&ldquo;make it right&rdquo;)</p>
+    <p class="eyebrow">Chapter 3 &middot; Milestone 2, phase 2 (&ldquo;make it right&rdquo;)</p>
     <h1>Bounded Queues and Worker Pools</h1>
     <p class="lede">
       Today the handler writes each reading to the store before it answers. This chapter is about
@@ -102,7 +102,7 @@
           <text class="d-ts" x="440" y="240" text-anchor="middle">steps 3 and 4 happen later, on another goroutine, after the client has its answer</text>
         </svg>
       </div>
-      <figcaption><b>Fig 1.1</b>The <code>202</code> (in colour) moves from after the write to after the put. Everything else in this chapter follows from that move.</figcaption>
+      <figcaption><b>Fig 3.1</b>The <code>202</code> (in colour) moves from after the write to after the put. Everything else in this chapter follows from that move.</figcaption>
     </figure>
 
     <p>That move creates four questions that the synchronous version never had to answer:</p>
@@ -195,7 +195,7 @@
           <text class="d-ts" x="360" y="276" text-anchor="middle">no slots, so the only "room" is an idle receiver</text>
         </svg>
       </div>
-      <figcaption><b>Fig 1.2</b>Top: an 8-slot ring holding four readings. Reads come from slot 2, the next write goes to slot 6. Bottom: an unbuffered channel stores nothing; a send completes only when a receiver takes it.</figcaption>
+      <figcaption><b>Fig 3.2</b>Top: an 8-slot ring holding four readings. Reads come from slot 2, the next write goes to slot 6. Bottom: an unbuffered channel stores nothing; a send completes only when a receiver takes it.</figcaption>
     </figure>
 
     <h3>A buffered Go channel is a ring buffer</h3>
@@ -203,7 +203,7 @@
       Inside the runtime, a channel is a struct called <code>hchan</code>. It holds a fixed array
       (<code>buf</code>), a write position (<code>sendx</code>), a read position (<code>recvx</code>), a
       count (<code>qcount</code>), two lists of goroutines waiting to send or receive, and a lock. So
-      <code>make(chan T, 8)</code> is exactly Fig 1.2's top row, protected by a mutex. You don't need
+      <code>make(chan T, 8)</code> is exactly Fig 3.2's top row, protected by a mutex. You don't need
       to build the ring yourself; you need to decide what surrounds it.
     </p>
     <p>
@@ -250,7 +250,7 @@
           <text class="d-ts" x="615" y="215" text-anchor="middle">refused, safe to retry</text>
         </svg>
       </div>
-      <figcaption><b>Fig 1.3</b>The three ways out of the handler. Only the green route puts anything in the queue. The amber route is the only failure that is the server's fault.</figcaption>
+      <figcaption><b>Fig 3.3</b>The three ways out of the handler. Only the green route puts anything in the queue. The amber route is the only failure that is the server's fault.</figcaption>
     </figure>
 
     <h3>The offer never waits</h3>
@@ -331,7 +331,7 @@
           <text class="d-ts" x="545" y="268" text-anchor="middle">one device always lands on one worker</text>
         </svg>
       </div>
-      <figcaption><b>Fig 1.4</b>Left: a shared queue lets a slow write and a fast write swap one device's readings. Right: routing by device ID keeps each device on one worker, so its readings stay in order while different devices still run in parallel.</figcaption>
+      <figcaption><b>Fig 3.4</b>Left: a shared queue lets a slow write and a fast write swap one device's readings. Right: routing by device ID keeps each device on one worker, so its readings stay in order while different devices still run in parallel.</figcaption>
     </figure>
 
     <div class="callout decision">
@@ -342,7 +342,7 @@
           <thead><tr><th>Option</th><th>Gains</th><th>Costs</th></tr></thead>
           <tbody>
             <tr><td>One worker</td><td>Order kept with no extra design. Simplest shutdown.</td><td>One store write at a time. Fine for a map; a real ceiling once the store is a network call.</td></tr>
-            <tr><td>N workers, one shared queue</td><td>Best use of workers; nobody sits idle while there's work.</td><td>One device's readings can be stored out of order (Fig 1.4, left).</td></tr>
+            <tr><td>N workers, one shared queue</td><td>Best use of workers; nobody sits idle while there's work.</td><td>One device's readings can be stored out of order (Fig 3.4, left).</td></tr>
             <tr><td>N workers, one queue each, chosen by device</td><td>Order kept per device, parallel across devices.</td><td>A very busy device fills its own queue while others sit empty: a <em>hot partition</em>. Shedding becomes per queue.</td></tr>
             <tr><td>Don't keep order; sort on read</td><td>Every reading carries a timestamp, so the query can sort.</td><td>Moves the cost to every read, and assumes device clocks are trustworthy.</td></tr>
           </tbody>
@@ -365,7 +365,7 @@
 
     <div class="callout recur">
       <h3>Where this shows up again</h3>
-      <p>The right-hand side of Fig 1.4 is a Kafka topic. The hash picks a <em>partition</em>, each partition has one consumer in a group, and ordering is guaranteed only within a partition. Whatever you choose here, you'll meet the same choice at M5 with Kafka's names on it.</p>
+      <p>The right-hand side of Fig 3.4 is a Kafka topic. The hash picks a <em>partition</em>, each partition has one consumer in a group, and ordering is guaranteed only within a partition. Whatever you choose here, you'll meet the same choice at M5 with Kafka's names on it.</p>
     </div>
   </section>
 
@@ -422,7 +422,7 @@
           <text class="d-tbad" x="395" y="156" text-anchor="end">close any earlier and a late send panics</text>
         </svg>
       </div>
-      <figcaption><b>Fig 1.5</b>The order is the whole design. Stop taking new requests and let in-flight ones finish; then close the queue; then wait for the workers to drain it; then exit.</figcaption>
+      <figcaption><b>Fig 3.5</b>The order is the whole design. Stop taking new requests and let in-flight ones finish; then close the queue; then wait for the workers to drain it; then exit.</figcaption>
     </figure>
 
     <p class="pseudo-label">Pseudocode, behaviour only</p>
@@ -440,7 +440,7 @@
     <h3>Things this needs that the repo doesn't have yet</h3>
     <ul>
       <li><strong>Signal handling.</strong> <code>main</code> doesn't listen for <code>SIGTERM</code> today. The standard library has a helper that turns a signal into a cancelled <code>context</code>; it's covered alongside Context in <em>Learn Go with Tests</em>.</li>
-      <li><strong>A server you can stop.</strong> gin's <code>Run</code> starts a server you can't shut down cleanly. A plain <code>net/http</code> <code>Server</code> with the gin engine as its handler has a <code>Shutdown</code> method that does the first step of Fig 1.5.</li>
+      <li><strong>A server you can stop.</strong> gin's <code>Run</code> starts a server you can't shut down cleanly. A plain <code>net/http</code> <code>Server</code> with the gin engine as its handler has a <code>Shutdown</code> method that does the first step of Fig 3.5.</li>
       <li><strong>A deadline.</strong> Kubernetes waits 30 seconds by default after <code>SIGTERM</code> before it kills the pod. A drain that takes longer is cut off, and whatever is left is lost. Choosing the deadline is choosing your loss window.</li>
     </ul>
 
@@ -490,7 +490,7 @@
           <text class="d-ts" x="68" y="34">capacity</text>
         </svg>
       </div>
-      <figcaption><b>Fig 1.6</b>Illustrative numbers. A 10,000-slot queue absorbs the first half second of a 20k/s overload, then sheds for the rest of the burst. Doubling capacity would delay shedding by another half second; it wouldn't prevent it.</figcaption>
+      <figcaption><b>Fig 3.6</b>Illustrative numbers. A 10,000-slot queue absorbs the first half second of a 20k/s overload, then sheds for the rest of the burst. Doubling capacity would delay shedding by another half second; it wouldn't prevent it.</figcaption>
     </figure>
 
     <h3>Little's Law</h3>
@@ -535,7 +535,7 @@
         <tbody>
           <tr><td>M3 &middot; SQS</td><td>SQS replaces the store behind the workers. Writes can now fail, so retries with jittered backoff and a dead-letter path arrive. Batching (up to 10 messages per call) is why the buffer stays.</td></tr>
           <tr><td>M4 &middot; Outbox</td><td>The outbox is a durable queue in Postgres, drained by polling workers. It closes the crash-loss window from &sect;6.</td></tr>
-          <tr><td>M5 &middot; Kafka</td><td>Partitions are Fig 1.4's right side. Consumer lag is queue depth. Pausing a partition is backpressure.</td></tr>
+          <tr><td>M5 &middot; Kafka</td><td>Partitions are Fig 3.4's right side. Consumer lag is queue depth. Pausing a partition is backpressure.</td></tr>
           <tr><td>M6 &middot; Redis</td><td>Per-client and global rate limits: the <code>429</code> that &sect;4 set aside.</td></tr>
           <tr><td>M7 &middot; Observability</td><td>Queue depth, shed count, and drain time are the metrics that turn &ldquo;acceptable loss&rdquo; into a number.</td></tr>
         </tbody>
@@ -588,13 +588,13 @@
     <p class="group-label">Transport</p>
     <ul class="checks">
       <li><input type="checkbox" id="h1"><label for="h1"><span class="what">A full queue becomes <code>503</code> with a <code>Retry-After</code> header.</span><span class="how">A handler test, next to the existing status-code translation cases.</span><span class="lvl">api</span></label></li>
-      <li><input type="checkbox" id="h2"><label for="h2"><span class="what">Invalid telemetry still gets <code>400</code> and never takes up a slot.</span><span class="how">Validation runs before the offer (Fig 1.3).</span><span class="lvl">api / domain</span></label></li>
+      <li><input type="checkbox" id="h2"><label for="h2"><span class="what">Invalid telemetry still gets <code>400</code> and never takes up a slot.</span><span class="how">Validation runs before the offer (Fig 3.3).</span><span class="lvl">api / domain</span></label></li>
       <li><input type="checkbox" id="h3"><label for="h3"><span class="what">The driver can tell a retryable refusal from a caller error without reading the message.</span><span class="how">The error-classification debt. Decide what the driver gets to look at.</span><span class="lvl">driver</span></label></li>
     </ul>
 
     <p class="group-label">Process and Spec</p>
     <ul class="checks">
-      <li><input type="checkbox" id="m1"><label for="m1"><span class="what"><code>SIGTERM</code> drains the queue, then the process exits cleanly.</span><span class="how">Fig 1.5 in <code>main</code>. Stopping the acceptance container already sends it a signal; is that a test you want?</span><span class="lvl">main</span></label></li>
+      <li><input type="checkbox" id="m1"><label for="m1"><span class="what"><code>SIGTERM</code> drains the queue, then the process exits cleanly.</span><span class="how">Fig 3.5 in <code>main</code>. Stopping the acceptance container already sends it a signal; is that a test you want?</span><span class="lvl">main</span></label></li>
       <li><input type="checkbox" id="m2"><label for="m2"><span class="what"><code>TelemetrySpec</code> stays green at both levels, with no changes beyond the sort-order case.</span><span class="how">You already weakened the promise in <code>4a00682</code>. If the Spec needs any other edit once the ring lands, the ring changed behaviour it shouldn't have.</span><span class="lvl">spec</span></label></li>
       <li><input type="checkbox" id="m3"><label for="m3"><span class="what">Every test that builds a <code>Service</code> shuts it down.</span><span class="how">The cost of the engine being an internal: <code>NewService</code> now starts goroutines, including in the domain-level Spec run. The goroutine-leak check in the engine list catches the ones you miss.</span><span class="lvl">domain</span></label></li>
     </ul>
@@ -612,6 +612,10 @@
       <strong>Done when</strong> every box is ticked, the full <code>mise run test</code> (container
       suite included) and <code>--race</code> are green, lint is clean, and you can answer the four
       questions in &sect;8 out loud without notes.
+    </p>
+    <p>
+      <a href="#hw03">Homework 3</a> covers this chapter. Do it after the ring lands: its interview questions
+      ask you to defend decisions you'll have just made.
     </p>
   </section>
 

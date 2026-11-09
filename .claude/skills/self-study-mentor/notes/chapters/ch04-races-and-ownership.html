@@ -12,7 +12,7 @@
 <article class="chapter">
 
   <header>
-    <p class="eyebrow">Chapter 3 &middot; Milestone 2</p>
+    <p class="eyebrow">Chapter 4 &middot; Milestone 2</p>
     <h1>Shared Memory, Races, and Ownership</h1>
     <p class="lede">
       The store is a map that many goroutines touch. This chapter is about how you know that's safe,
@@ -121,7 +121,7 @@
           <text class="d-ts" x="330" y="180">&hellip; and each record's Metrics is its own shared slice</text>
         </svg>
       </div>
-      <figcaption><b>Fig 3.1</b>Two headers, one array. A mutex only protects what happens while it's held; the caller's reads happen after it's released.</figcaption>
+      <figcaption><b>Fig 4.1</b>Two headers, one array. A mutex only protects what happens while it's held; the caller's reads happen after it's released.</figcaption>
     </figure>
     <p>
       The mutex protects the critical section. Once the method returns and unlocks, nothing stops
@@ -185,7 +185,7 @@
       <strong>When to switch:</strong> when operations need invariants that span several steps, when the
       owner has to do slow work (I/O) in order, or when sharding the state by key lets each owner run
       without contention (one goroutine per shard). That last one is what per-worker queues would have
-      needed in Chapter 1 &sect;5 to actually remove the store's mutex.
+      needed in Chapter 3 &sect;5 to actually remove the store's mutex.
     </p>
   </section>
 
@@ -193,7 +193,7 @@
   <section id="s6">
     <h2><span class="sec">&sect;6</span>Buffered vs. unbuffered under a burst</h2>
     <p>
-      Chapter 1 &sect;3 showed that an unbuffered channel stores nothing: a send completes only when a
+      Chapter 3 &sect;3 showed that an unbuffered channel stores nothing: a send completes only when a
       receiver takes it. That changes what a burst does to the handler.
     </p>
     <div class="tablewrap">
@@ -209,14 +209,14 @@
       A buffer doesn't make work faster. It moves where waiting happens: from the client's request
       (latency) to the reading's time in the queue (staleness). For a fire-and-forget <code>202</code>,
       that's the right place for it. Who closes the channel, and why it can't be the senders, is
-      Chapter 1 &sect;6.
+      Chapter 3 &sect;6.
     </p>
   </section>
 
   <!-- ================================================================ -->
   <section id="s7">
     <h2><span class="sec">&sect;7</span>Homework</h2>
-    <p><a href="#hw03">Homework 3</a> covers this chapter.</p>
+    <p><a href="#hw04">Homework 4</a> covers this chapter.</p>
   </section>
 
 </article>

@@ -145,6 +145,21 @@
   .masthead-links a { font-weight: 600; text-decoration: none; }
   .masthead-links a:hover { text-decoration: underline; }
 
+  /* ---------- now / next ---------- */
+  .now-next { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .nn { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .nn-now { border: 2px solid var(--active); box-shadow: var(--shadow); }
+  .nn-label { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .nn-now .nn-label { color: var(--active); }
+  .nn h2 { font-size: 17px; }
+  .nn-when { display: block; font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--muted); margin-top: 2px; }
+  .nn ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--ink-soft); }
+  .nn strong { color: var(--ink); }
+  .section-note { font-size: 14px; color: var(--muted); max-width: 72ch; }
+  table.plan td { font-size: 14px; }
+  table.plan tr[data-state="active"] td { background: var(--active-bg); }
+  table.plan td.ms .chip { margin-left: 6px; }
+
   .statbar {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -447,23 +462,22 @@
     <p class="eyebrow">athenas-telemetry-svc &middot; self-directed study</p>
     <h1>Athena Study Tracker</h1>
     <p class="lede">
-      Where the build stands, what the reading says, and the one thing to pick up next.
-      For three weeks a time-boxed <strong>Video track</strong> comes first (real-time streaming, codecs, transport),
-      then Milestone 2 resumes where it paused.
+      Where the build stands, what to read, and the one thing to pick up next.
+      Milestone 2 is active again; the video material is now a stretch goal at the end.
     </p>
     <p class="masthead-links">
       <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake" target="_blank" rel="noopener">Study notes &amp; homework &rarr;</a>
-      <span>10 chapters, a homework set for each, every bank question covered</span>
+      <span>7 chapters in reading order plus 3 stretch, a homework set for each</span>
     </p>
 
     <dl class="statbar">
       <div class="stat">
-        <dt>Active track</dt>
-        <dd>Video &middot; wk 1 of 3 &middot; to Nov 25</dd>
+        <dt>Next build step</dt>
+        <dd>Full-queue test</dd>
       </div>
       <div class="stat">
         <dt>Milestone</dt>
-        <dd>M2 &middot; paused at phase 2</dd>
+        <dd>M2 &middot; phase 2 of 3</dd>
       </div>
       <div class="stat">
         <dt>Branch</dt>
@@ -476,72 +490,79 @@
     </dl>
   </header>
 
+  <section class="now-next">
+    <article class="nn nn-now">
+      <p class="nn-label">You are here</p>
+      <h2>M2 re-entry <span class="nn-when">phase 2, make it right</span></h2>
+      <ul>
+        <li><strong>First:</strong> full <code>mise run test</code> incl. container, then lint (7 issues open)</li>
+        <li><strong>Study:</strong> <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch01-s3" target="_blank" rel="noopener">Ch 1 &sect;3</a> (stub vs. fake), <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch04" target="_blank" rel="noopener">Ch 4</a>; reread <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch03" target="_blank" rel="noopener">Ch 3</a></li>
+        <li><strong>Homework:</strong> <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw04" target="_blank" rel="noopener">HW 4</a></li>
+      </ul>
+    </article>
+    <article class="nn">
+      <p class="nn-label">Up next</p>
+      <h2>The full-queue test</h2>
+      <ul>
+        <li><strong>Build:</strong> a full queue rejects with a sentinel, which rules out goroutine-per-push</li>
+        <li><strong>Then:</strong> bounded queue, N workers, graceful shutdown</li>
+        <li><strong>Study:</strong> <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch05" target="_blank" rel="noopener">Ch 5</a> &middot; <strong>HW:</strong> <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw01" target="_blank" rel="noopener">HW 1</a> once the stub lands</li>
+      </ul>
+    </article>
+    <article class="nn">
+      <p class="nn-label">After that</p>
+      <h2>Ship the ring, then measure</h2>
+      <ul>
+        <li><strong>Build:</strong> <code>503</code> + <code>Retry-After</code>, driver error classification, PR</li>
+        <li><strong>HW:</strong> <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw03" target="_blank" rel="noopener">HW 3</a>, <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw05" target="_blank" rel="noopener">HW 5</a> once the ring lands</li>
+        <li><strong>Phase 3:</strong> <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch06" target="_blank" rel="noopener">Ch 6</a>, benchmark before optimizing</li>
+      </ul>
+    </article>
+  </section>
+
   <section>
-    <h2>Video track &mdash; side track, ~10 hrs/week</h2>
-    <div class="phases">
-
-      <article class="card phase" data-state="active">
-        <div class="phase-num">W1</div>
-        <div>
-          <div class="phase-head">
-            <h3>Pixels to packets &middot; Nov 5&ndash;11</h3>
-            <span class="chip chip-active">Now</span>
-          </div>
-          <p class="phase-body">
-            <a href="https://howvideo.works/" target="_blank" rel="noopener">HowVideo.works</a> &rarr;
-            <a href="https://github.com/leandromoreira/digital_video_introduction" target="_blank" rel="noopener">Digital Video Introduction</a>
-            (through H.264, with the ffmpeg exercises) &rarr;
-            <a href="https://webrtcforthecurious.com/" target="_blank" rel="noopener">WebRTC for the Curious</a> ch.&nbsp;1&ndash;3.
-            Then run Pion's <code>reflect</code> and <code>save-to-disk</code> unchanged, with <code>chrome://webrtc-internals</code> open.
-          </p>
-          <div class="phase-evidence">
-            <span>checkpoint: trace one webcam frame to a viewer via WebRTC <em>and</em> via HLS, naming every protocol</span>
-          </div>
-        </div>
-      </article>
-
-      <article class="card phase" data-state="wait">
-        <div class="phase-num">W2</div>
-        <div>
-          <div class="phase-head">
-            <h3>Real-time transport + the spike &middot; Nov 12&ndash;18</h3>
-            <span class="chip chip-wait">Next</span>
-          </div>
-          <p class="phase-body">
-            WfC ch.&nbsp;5, 6, 9 (congestion control, RTP/RTCP, debugging). Her spike, in a separate repo:
-            browser webcam &rarr; Pion in Go &rarr; file &rarr; ffmpeg &rarr; HLS. The decision it forces is
-            <strong>transcode vs. transmux</strong>: VP8 from the browser, H.264 for HLS.
-          </p>
-          <div class="phase-evidence">
-            <span>checkpoint: 30&nbsp;s recorded by her code plays back as HLS</span>
-          </div>
-        </div>
-      </article>
-
-      <article class="card phase" data-state="wait">
-        <div class="phase-num">W3</div>
-        <div>
-          <div class="phase-head">
-            <h3>Managed services + design &middot; Nov 19&ndash;25</h3>
-            <span class="chip chip-wait">Queued</span>
-          </div>
-          <p class="phase-body">
-            Kinesis Video Streams (fragments, retention, HLS playback, kvssink, WebRTC ingestion) and MistServer
-            (any protocol in, any protocol out). The getStats &rarr; Athenas producer, designed on paper, Spec-first.
-            Then question-bank rehearsal and one system-design mock.
-          </p>
-          <div class="phase-evidence">
-            <span>exit: video question bank answered to the standard</span>
-            <span>interview lands in wk 2? move KVS + Mist ahead of the spike</span>
-          </div>
-        </div>
-      </article>
-
+    <h2>Study plan &mdash; chapters and homework by phase</h2>
+    <p class="section-note">Theory leads, build follows. Each chapter lands just before the decision it informs; each homework comes after you've made that decision, because the interview questions ask you to defend choices. Chapters are numbered in reading order.</p>
+    <div class="card scroll">
+      <table class="plan">
+        <thead><tr><th>When</th><th>Read</th><th>Homework</th><th>Why then</th></tr></thead>
+        <tbody>
+          <tr data-state="active"><td class="ms">M2 re-entry <span class="chip chip-active">Now</span></td><td><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch01-s3" target="_blank" rel="noopener">Ch 1 &sect;3</a>, <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch04" target="_blank" rel="noopener">Ch 4</a>; reread <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch03" target="_blank" rel="noopener">Ch 3</a></td><td><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw04" target="_blank" rel="noopener">HW 4</a></td><td class="focus">Stub vs. fake for the test double you're mid-way through; buffered vs. unbuffered and <code>-race</code> while writing the engine. Ch 3 &sect;9 is the phase 2 build list.</td></tr>
+          <tr><td class="ms">Anytime in M2</td><td><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch02" target="_blank" rel="noopener">Ch 2</a></td><td><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw02" target="_blank" rel="noopener">HW 2</a></td><td class="focus">Reviews config work you've already finished. A quick warm-up.</td></tr>
+          <tr><td class="ms">During phase 2</td><td><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch05" target="_blank" rel="noopener">Ch 5</a></td><td><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw01" target="_blank" rel="noopener">HW 1</a> once the stub lands</td><td class="focus">Shedding, <code>503</code>, shutdown, error classification. HW 1 once you can speak about the test kinds from experience.</td></tr>
+          <tr><td class="ms">After the ring lands</td><td>&mdash;</td><td><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw03" target="_blank" rel="noopener">HW 3</a>, <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw05" target="_blank" rel="noopener">HW 5</a></td><td class="focus">Their questions ask you to defend decisions you'll have just made.</td></tr>
+          <tr><td class="ms">Phase 3</td><td><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch03-s7" target="_blank" rel="noopener">Ch 3 &sect;7</a>, <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch06" target="_blank" rel="noopener">Ch 6</a></td><td>Redo HW 3 sizing, <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw06" target="_blank" rel="noopener">HW 6</a></td><td class="focus">Regrade with your measured numbers instead of assumed ones.</td></tr>
+          <tr><td class="ms">M3 opens</td><td><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch07-s1" target="_blank" rel="noopener">Ch 7 &sect;1</a></td><td><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw07" target="_blank" rel="noopener">HW 7</a> (M3 items)</td><td class="focus">The rest of HW 7 goes one milestone at a time. Ch 8, the full M3 chapter, gets written then.</td></tr>
+          <tr><td class="ms">Stretch, whenever</td><td><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#chs1" target="_blank" rel="noopener">Ch S1</a>&ndash;<a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#chs3" target="_blank" rel="noopener">S3</a></td><td><a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hws1" target="_blank" rel="noopener">HW S1</a>&ndash;<a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hws3" target="_blank" rel="noopener">S3</a></td><td class="focus">Not on the roadmap. Video streaming as another domain for the same queue, backpressure, and telemetry ideas.</td></tr>
+        </tbody>
+      </table>
     </div>
   </section>
 
   <section>
-    <h2>Milestone 2, in three phases &mdash; paused until Nov 25</h2>
+    <h2>Reading position &mdash; books and course</h2>
+    <div class="reading">
+      <div class="meter">
+        <div class="meter-top">
+          <h3>GOOS</h3>
+          <span class="meter-val">ch. 7 / 27</span>
+        </div>
+        <div class="track"><div class="fill" style="width: 26%"></div></div>
+        <p class="meter-note">Resume at ch. 7. M2's block is chapters 6&ndash;8; read straight through, don't skip ahead to ch. 27 on async testing.</p>
+      </div>
+      <div class="meter">
+        <div class="meter-top">
+          <h3>Educative path</h3>
+          <span class="meter-val">course 1 / 3</span>
+        </div>
+        <div class="track"><div class="fill" style="width: 12%"></div></div>
+        <p class="meter-note">Resume at &ldquo;What distributed systems achieve for us.&rdquo; Course 1 is the lab for M1 <em>and</em> M2, and gates M3. Also current: SRE ch. 22, &ldquo;Addressing Cascading Failures&rdquo;.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Milestone 2, in three phases</h2>
     <div class="phases">
 
       <article class="card phase" data-state="done">
@@ -568,7 +589,7 @@
         <div>
           <div class="phase-head">
             <h3>Make it right &mdash; the dispatch ring</h3>
-            <span class="chip chip-wait">Paused</span>
+            <span class="chip chip-active">Active</span>
           </div>
           <p class="phase-body">
             Not a fix for data races &mdash; the store's mutex already handles those. The ring exists to make
@@ -577,7 +598,9 @@
             and draining.
           </p>
           <div class="phase-evidence">
-            <span>decided: <code>202</code> = fire-and-forget &middot; full queue = shed <code>503</code> &middot; Spec polls, but is green against the sync store &middot; next: workers vs. ordering</span>
+            <span>decided: <code>202</code> = fire-and-forget &middot; full queue = shed <code>503</code> &middot; N workers, one shared queue, sort on read</span>
+            <span>landed: sort-on-read (<code>c64930c</code>, <code>8be6d78</code>) &middot; engine scaffold + naive push (<code>34079f2</code>)</span>
+            <span>next: the full-queue test</span>
           </div>
         </div>
       </article>
@@ -608,127 +631,45 @@
       <ol class="queue">
         <li>
           <span class="idx">00</span>
-          <span class="what">Today: phase 2 core, time-boxed 4&ndash;5 hrs
-            <span class="why">Pause M2 at a clean commit, not half-built. Ordering decision &rarr; engine tests red-first &rarr; queue + workers &rarr; <code>503</code> when full &rarr; drain on shutdown. Driver error classification waits.</span>
+          <span class="what">Re-enter M2: full <code>mise run test</code> incl. container, then lint
+            <span class="why">The container suite hasn't run since 2026-10-09, and lint had 7 open issues on 11-06. Prove the baseline before building on it.</span>
           </span>
         </li>
         <li>
           <span class="idx">01</span>
-          <span class="what">Read <a href="https://howvideo.works/" target="_blank" rel="noopener">HowVideo.works</a>, end to end
-            <span class="why">Video track week 1. The whole pipeline in one sitting, so codecs and WebRTC have somewhere to hang.</span>
+          <span class="what">Engine test: a full queue rejects with a sentinel
+            <span class="why">The naive <code>go store.Insert(...)</code> passes everything so far; this test rules it out. Use the blocking <code>Storer</code> stub and sync on &ldquo;worker entered <code>Insert</code>&rdquo; signals, not sleeps.</span>
           </span>
         </li>
         <li>
           <span class="idx">02</span>
-          <span class="what">Video track weeks 1&ndash;3 (above)
-            <span class="why">Spike in a separate repo; getStats producer designed, not built. Nothing lands in <code>internal/</code>.</span>
+          <span class="what">Bounded queue, N workers, graceful shutdown
+            <span class="why">One shared channel; <code>Service.Shutdown(ctx)</code> drains it. Close only after every sender is gone (Ch 1 &sect;6).</span>
           </span>
         </li>
         <li>
           <span class="idx">03</span>
-          <span class="what">Re-enter M2: full <code>mise run test</code> incl. container, then lint
-            <span class="why">The container suite hasn't run since 2026-10-09. Prove the baseline before building on it.</span>
+          <span class="what"><code>503</code> + <code>Retry-After</code>, then error classification in the driver
+            <span class="why">A full queue is the first callee-fault <code>Ingest</code> can return; the Spec stops matching on error prose.</span>
           </span>
         </li>
         <li>
           <span class="idx">04</span>
-          <span class="what">Re-read <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#ch01" target="_blank" rel="noopener">Study Notes ch. 1</a>; decide worker count vs. per-device ordering; resume GOOS ch. 7&ndash;8
-            <span class="why">N workers can reorder one device's readings; one worker can't. RTP's per-SSRC ordering and the jitter buffer are fresh evidence for that call.</span>
+          <span class="what">PR &rarr; merge the ring
           </span>
         </li>
         <li>
           <span class="idx">05</span>
-          <span class="what">A Spec case that the ring makes pass
-            <span class="why">The Spec now polls, but it is green against the synchronous store, so nothing fails yet without the ring. Outside-in means something should.</span>
-          </span>
-        </li>
-        <li>
-          <span class="idx">06</span>
-          <span class="what">Build the dispatch ring + graceful shutdown
-            <span class="why">Justify buffered vs. unbuffered, full-queue policy, ordering, and who closes the channel before writing it. <code>main</code> has no shutdown today; a buffer makes that lossy.</span>
-          </span>
-        </li>
-        <li>
-          <span class="idx">07</span>
-          <span class="what">Error classification in the driver
-            <span class="why">Due on the ring's first commit: a full queue is the first callee-fault <code>Ingest</code> can return.</span>
-          </span>
-        </li>
-        <li>
-          <span class="idx">08</span>
-          <span class="what">PR &rarr; merge the ring</span>
-        </li>
-        <li>
-          <span class="idx">09</span>
           <span class="what">Benchmark, then optimize
             <span class="why">Phase 3, and M2's actual exit criterion. The getStats producer becomes the realistic workload.</span>
           </span>
         </li>
         <li>
-          <span class="idx">10</span>
+          <span class="idx">06</span>
           <span class="what">Observability stack (proposed)
-            <span class="why">RED + queue metrics, structured logs, compose with Prometheus, Loki, Alloy and Grafana. Lands with phase 3 measurement, after the ring. Labels by route template; <code>device_id</code> never a label.</span>
+            <span class="why">RED + queue metrics, structured logs, compose with Prometheus, Loki, Alloy and Grafana. Lands with phase 3 measurement. Labels by route template; <code>device_id</code> never a label.</span>
           </span>
         </li>
-      </ol>
-    </div>
-  </section>
-
-  <section>
-    <h2>Reading position</h2>
-    <div class="reading">
-      <div class="meter">
-        <div class="meter-top">
-          <h3>GOOS</h3>
-          <span class="meter-val">ch. 7 / 27</span>
-        </div>
-        <div class="track"><div class="fill" style="width: 26%"></div></div>
-        <p class="meter-note">M2's block is chapters 6&ndash;8. Read straight through; don't skip ahead to ch. 27 on async testing.</p>
-      </div>
-      <div class="meter">
-        <div class="meter-top">
-          <h3>Educative path</h3>
-          <span class="meter-val">course 1 / 3</span>
-        </div>
-        <div class="track"><div class="fill" style="width: 12%"></div></div>
-        <p class="meter-note">&ldquo;What distributed systems achieve for us.&rdquo; Course 1 is the lab for M1 <em>and</em> M2, and gates M3.</p>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <h2>Questions the Video track should make you able to answer</h2>
-    <div class="card qbank">
-      <p class="standard">
-        Staff-level video questions are rarely definitions. Expect &ldquo;design it&rdquo; and &ldquo;what breaks.&rdquo;
-        Full list in <code>progress-log.md</code>; these are the ones most likely to come up. Rehearse all of them in
-        <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw07" target="_blank" rel="noopener">Homework 7</a>,
-        <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw08" target="_blank" rel="noopener">8</a>, and
-        <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hw09" target="_blank" rel="noopener">9</a>.
-      </p>
-      <ol>
-        <li><span class="q">WebRTC vs. HLS for live view: what latency does each give, why, and what does each cost to serve 10,000 viewers?
-          <span class="tag">UDP + jitter buffer vs. HTTP segments &middot; CDN cacheability</span></span></li>
-        <li><span class="q">Why might one camera use WebRTC for live and HLS from KVS for playback? What does the user see at the boundary?
-          <span class="tag">live vs. recorded</span></span></li>
-        <li><span class="q">Where does glass-to-glass latency come from, stage by stage, and which stage would you attack first?
-          <span class="tag">latency budget</span></span></li>
-        <li><span class="q">What does a media server like MistServer do, and why put one between a camera and its viewers?
-          <span class="tag">ingest any, output any &middot; fan-out &middot; transmux</span></span></li>
-        <li><span class="q">What does Kinesis Video Streams handle for you, and what's left to build? How would you pick retention?
-          <span class="tag">managed storage &middot; fragments &middot; cost</span></span></li>
-        <li><span class="q">Transcode vs. transmux: what does each cost per stream, and how do you design a fleet that rarely transcodes?
-          <span class="tag">CPU &middot; latency &middot; codec negotiation</span></span></li>
-        <li><span class="q">Walk through WebRTC setup: signaling, SDP, ICE, STUN, TURN, DTLS, SRTP. What does the standard leave to you?
-          <span class="tag">signaling is yours</span></span></li>
-        <li><span class="q">How does keyframe interval affect join time, bandwidth, and recovery after packet loss?
-          <span class="tag">GOP &middot; PLI</span></span></li>
-        <li><span class="q"><code>getStats()</code> counters are cumulative. Why ship counters rather than rates, and what does that do to your loss tolerance?
-          <span class="tag">ties back to M2's at-most-once</span></span></li>
-        <li><span class="q">A camera's upload is slower than its encoder. Where's the queue, and what drops first?
-          <span class="tag">the M2 backpressure question, in a video costume</span></span></li>
-        <li><span class="q">Design live view and event recording for 1M home cameras: capacity math for ingest, storage, and viewers.
-          <span class="tag">system design &middot; back-of-envelope</span></span></li>
       </ol>
     </div>
   </section>
@@ -751,79 +692,6 @@
   </section>
 
   <section>
-    <h2>Standing questions &mdash; TDD and test design</h2>
-    <div class="card qbank">
-      <p class="standard">
-        Not milestone-scoped. The vocabulary: <strong>level</strong> is acceptance / integration / unit
-        (GOOS ch.&nbsp;1); <strong>reusability</strong> is separate &mdash; a body run against many
-        implementations is a <em>contract test</em>, one written for a single implementation is a unit test.
-        <em>Solitary</em> isolates with doubles, <em>sociable</em> uses real collaborators. A working
-        stand-in is a <em>fake</em>, not a mock.
-      </p>
-      <ol>
-        <li><span class="q">How many distinct kinds of test are in this repo, and what does each buy that the others can't?
-          <span class="tag">taxonomy</span></span></li>
-        <li><span class="q">The Spec runs at three levels &mdash; what does each catch that the one beneath it can't? Which would you delete first if the suite got slow?
-          <span class="tag">pyramid &middot; cost per run</span></span></li>
-        <li><span class="q">Two things in this repo are called &ldquo;spec&rdquo; and aren't the same pattern. What's the difference?
-          <span class="tag">acceptance spec vs. contract test</span></span></li>
-        <li><span class="q">Why does <code>specifications</code> live in an exported, non-test package? What does that cost?
-          <span class="tag">importability &middot; dependency surface</span></span></li>
-        <li><span class="q">Seven validation cases downstairs, one invalid-input case in the Spec. Why not all seven at the top?
-          <span class="tag">combinatorics go down</span></span></li>
-        <li><span class="q">Testing against a real in-memory store &mdash; mock, stub, or fake? Why does it matter?
-          <span class="tag">test double taxonomy</span></span></li>
-        <li><span class="q">Why outside-in? What goes wrong if you build the store first?
-          <span class="tag">design pressure</span></span></li>
-        <li><span class="q">What does &ldquo;red for the right reason&rdquo; mean? Name a time yours wasn't.
-          <span class="tag">honest failure</span></span></li>
-        <li><span class="q">Your acceptance cases need no reset. How, and why beat a reset hook?
-          <span class="tag">isolation by construction</span></span></li>
-        <li><span class="q">A test was awkward to write and you changed the design instead. Walk me through it.
-          <span class="tag">listening to the tests</span></span></li>
-      </ol>
-    </div>
-  </section>
-
-  <section>
-    <h2>Questions M2 should make you able to answer</h2>
-    <div class="card qbank">
-      <p class="standard">
-        A good answer names the trade in both directions, names the failure mode the choice
-        <em>doesn't</em> cover, and says where you'd measure. A definition isn't an answer.
-      </p>
-      <ol>
-        <li><span class="q">What happens when your consumer is slower than your producer?
-          <span class="tag">backpressure vs. load shedding</span></span></li>
-        <li><span class="q">How did you size that buffer?
-          <span class="tag">Little's Law &mdash; L = &lambda;W</span></span></li>
-        <li><span class="q">Your endpoint returns 202 &mdash; what have you promised the caller, and what can still be lost?
-          <span class="tag">durability boundary &middot; at-most-once</span></span></li>
-        <li><span class="q">Buffered or unbuffered, and what does each do to tail latency under a burst?
-          <span class="tag">queueing behavior</span></span></li>
-        <li><span class="q">Who closes the channel, and why can't it be the senders?
-          <span class="tag">ownership</span></span></li>
-        <li><span class="q">How do you know your store is thread-safe? Name two failures and which tool catches each.
-          <span class="tag">data race vs. lost update</span></span></li>
-        <li><span class="q">What does <code>-race</code> prove, and what does it miss?
-          <span class="tag">no false positives, many false negatives</span></span></li>
-        <li><span class="q">Your store hands back a slice &mdash; what's the risk, and why isn't a mutex enough?
-          <span class="tag">aliasing &middot; encapsulation</span></span></li>
-        <li><span class="q">What's the production failure mode of an unbounded queue?
-          <span class="tag">OOM &middot; unbounded latency</span></span></li>
-        <li><span class="q">Why buffer in memory at all when you could write straight to SQS?
-          <span class="tag">batching &middot; failure isolation &middot; durability of the 202</span></span></li>
-        <li><span class="q">You chose fire-and-forget over group commit. What did you trade, what would make you switch, and how would you know your loss rate?
-          <span class="tag">at-most-once &middot; end-to-end argument</span></span></li>
-        <li><span class="q">Queue full returns <code>503</code>, not <code>429</code>. Why, and how did you test that you shed?
-          <span class="tag">load shedding &middot; overload vs. rate limit</span></span></li>
-        <li><span class="q">Your framework only offers a global mode switch. Where did you call it, and what does that choice hide?
-          <span class="tag">global state &middot; composition root</span></span></li>
-      </ol>
-    </div>
-  </section>
-
-  <section>
     <h2>Milestone roadmap</h2>
     <div class="card scroll">
       <table>
@@ -841,7 +709,7 @@
             <td class="ms">M2 &middot; In-Memory Concurrency</td>
             <td class="focus">Store, query, dispatch ring, worker pools</td>
             <td class="ms">6&ndash;8</td>
-            <td><span class="chip chip-wait">Paused &rarr; Nov 25</span></td>
+            <td><span class="chip chip-active">Active</span></td>
           </tr>
           <tr>
             <td class="ms">M3 &middot; SQS + LocalStack</td>
@@ -900,6 +768,19 @@
         </ul>
       </div>
 
+    </div>
+  </section>
+
+  <section>
+    <h2>Stretch &mdash; video streaming</h2>
+    <div class="card listcard">
+      <p class="phase-body">Not on the roadmap and not blocking anything. Opened 2026-11-05 for an interview that's no longer likely, and kept because it's interesting and reuses the same ideas: bounded queues, backpressure, at-most-once telemetry, cardinality.</p>
+      <ul>
+        <li><strong>Read:</strong> <a href="https://howvideo.works/" target="_blank" rel="noopener">HowVideo.works</a> &rarr; <a href="https://github.com/leandromoreira/digital_video_introduction" target="_blank" rel="noopener">Digital Video Introduction</a> &rarr; <a href="https://webrtcforthecurious.com/" target="_blank" rel="noopener">WebRTC for the Curious</a> ch. 1&ndash;3, 5, 6, 9 &rarr; KVS and MistServer docs</li>
+        <li><strong>Study:</strong> <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#chs1" target="_blank" rel="noopener">Ch S1</a> codecs &middot; <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#chs2" target="_blank" rel="noopener">Ch S2</a> WebRTC &middot; <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#chs3" target="_blank" rel="noopener">Ch S3</a> delivery at scale, with <a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hws1" target="_blank" rel="noopener">HW S1</a>&ndash;<a href="https://claude.ai/artifact/TN7oyZ8z4RVFyy6YSRQake#hws3" target="_blank" rel="noopener">S3</a></li>
+        <li><strong>Spike</strong> (separate repo, throwaway): browser webcam &rarr; Pion in Go &rarr; ffmpeg &rarr; HLS. Forces the transcode vs. transmux decision.</li>
+        <li><strong>Athenas tie-in:</strong> a getStats producer, designed on paper, built only after the ring. It would be phase 3's realistic workload.</li>
+      </ul>
     </div>
   </section>
 

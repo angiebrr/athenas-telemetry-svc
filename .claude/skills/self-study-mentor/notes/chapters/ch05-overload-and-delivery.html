@@ -2,10 +2,10 @@
 <article class="chapter">
 
   <header>
-    <p class="eyebrow">Chapter 4 &middot; Milestone 2</p>
+    <p class="eyebrow">Chapter 5 &middot; Milestone 2</p>
     <h1>Overload, Retries, and What 202 Promises</h1>
     <p class="lede">
-      Chapter 1 built the queue. This chapter is about the contract around it: what the caller has
+      Chapter 3 built the queue. This chapter is about the contract around it: what the caller has
       been told, what can still disappear, what overload does under each policy, and what a well-behaved
       device does when it's refused.
     </p>
@@ -83,7 +83,7 @@
     <p>
       <strong>What would make you switch.</strong> The reversal conditions you wrote down: telemetry that
       includes alarm events or other readings that can't be replaced by the next sample, or a measured loss
-      rate that isn't small. (Counters, interestingly, make at-most-once <em>safer</em>: see Chapter 9 &sect;6.)
+      rate that isn't small. (Counters, interestingly, make at-most-once <em>safer</em>: see Chapter S3 &sect;6.)
     </p>
   </section>
 
@@ -115,7 +115,7 @@
       sequence numbers checked where the data lands, or an acknowledgement sent only after a durable write.
     </p>
     <p>
-      You already used this argument once. In Chapter 1 &sect;5, ordering is stamped at the source
+      You already used this argument once. In Chapter 3 &sect;5, ordering is stamped at the source
       (timestamps) and restored at the destination (sort on read), instead of being carried through every
       hop of the pipeline.
     </p>
@@ -192,7 +192,7 @@
       The timeout row is the subtle one. A timed-out request may have succeeded, so retrying it can store
       a reading twice. Retries turn at-most-once into <strong>at-least-once</strong>, and at-least-once
       needs either idempotent writes or duplicate tolerance (a natural key such as device ID plus
-      timestamp). This is M3's main topic (Chapter 10 &sect;1).
+      timestamp). This is M3's main topic (Chapter 7 &sect;1).
     </p>
     <h3>Exponential backoff with jitter</h3>
     <p>
@@ -244,7 +244,7 @@
   <!-- ================================================================ -->
   <section id="s9">
     <h2><span class="sec">&sect;9</span>Homework</h2>
-    <p><a href="#hw04">Homework 4</a> covers this chapter.</p>
+    <p><a href="#hw05">Homework 5</a> covers this chapter.</p>
   </section>
 
 </article>

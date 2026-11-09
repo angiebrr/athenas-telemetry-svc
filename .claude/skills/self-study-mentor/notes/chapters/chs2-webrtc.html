@@ -2,7 +2,7 @@
 <article class="chapter">
 
   <header>
-    <p class="eyebrow">Chapter 8 &middot; Video track, weeks 1&ndash;2</p>
+    <p class="eyebrow">Chapter S2 &middot; Stretch: video streaming</p>
     <h1>Video II: WebRTC and Real-Time Transport</h1>
     <p class="lede">
       WebRTC gets video from a camera to a browser in a few hundred milliseconds by choosing loss over
@@ -161,7 +161,7 @@
     </ul>
     <p>
       The encoder responds by lowering bitrate, then resolution or frame rate. This is backpressure in the
-      sense of Chapter 4 &sect;6: the sender slows down to match what the network can carry, and the queue
+      sense of Chapter 5 &sect;6: the sender slows down to match what the network can carry, and the queue
       it's avoiding is in the home router (bufferbloat).
     </p>
     <p><strong>What you'd see in <code>getStats()</code> on a bad uplink:</strong></p>
@@ -243,7 +243,7 @@
     <p>
       <strong>Which to attack first:</strong> the one you've measured as largest, which in practice is
       usually buffering: the jitter buffer for WebRTC, or for HLS the segment duration times the number of
-      segments the player buffers (Chapter 9 &sect;1), which dwarfs everything else. After that, network
+      segments the player buffers (Chapter S3 &sect;1), which dwarfs everything else. After that, network
       queueing.
     </p>
   </section>
@@ -251,7 +251,7 @@
   <!-- ================================================================ -->
   <section id="s10">
     <h2><span class="sec">&sect;10</span>Homework</h2>
-    <p><a href="#hw08">Homework 8</a> covers this chapter.</p>
+    <p><a href="#hws2">Homework S2</a> covers this chapter.</p>
   </section>
 
 </article>

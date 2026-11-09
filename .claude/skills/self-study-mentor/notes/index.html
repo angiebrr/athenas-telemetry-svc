@@ -341,6 +341,15 @@
 
   .loading, .failed { color: var(--muted); font-size: 15px; }
 
+  /* ---------- parts ---------- */
+  .part-head { margin-top: 18px; display: flex; flex-direction: column; gap: 2px; }
+  .part-head:first-child { margin-top: 0; }
+  .part-head h3 { margin: 0; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+  .part-head p { margin: 0; font-size: 14px; color: var(--muted); max-width: 66ch; }
+  .entry.stretch { box-shadow: none; background: var(--paper-alt); }
+  .entry .num { font-size: 30px; }
+  .hw-list li.hw-divider { padding: 10px 18px 6px; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); background: var(--paper-alt); }
+
   /* ---------- cross-links ---------- */
   .lib-links { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 14px; color: var(--muted); }
   .lib-links a { font-weight: 600; text-decoration: none; }
@@ -539,43 +548,79 @@
 
 <script src="homework.js"></script>
 <script>
+  // Reading order follows the project: what's built, the ring, measuring it, what's ahead, then stretch.
+  const PARTS = [
+    { id: "built",   title: "Part I · What's built",   note: "The foundations you already have: how the suite is shaped, and how the service is configured." },
+    { id: "ring",    title: "Part II · The ring",      note: "M2 phase 2: the queue, its concurrency, and the promises around it." },
+    { id: "measure", title: "Part III · Measuring it", note: "M2 phase 3 and beyond: what to measure, and how to alert on it." },
+    { id: "ahead",   title: "Part IV · What's ahead",  note: "M3 to M7, previewed through their interview questions." },
+    { id: "stretch", title: "Stretch · Video streaming", note: "Not on the roadmap. Real-time video as another domain for the same ideas: queues, backpressure, at-most-once telemetry, cardinality." },
+  ];
+
   const CHAPTERS = {
-    ch01: { file: "chapters/ch01-bounded-queues.html", title: "Bounded Queues and Worker Pools", crumb: "Chapter 1 · M2",
-            blurb: "The in-memory queue between the HTTP handler and the store: ring buffers, shedding when full, ordering across workers, and draining on shutdown.",
-            meta: ["M2 · phase 2", "build assignment", "written 2026-10-21", "updated 2026-11-05"] },
-    ch02: { file: "chapters/ch02-testing-outside-in.html", title: "Testing Outside-In: The Shape of This Suite", crumb: "Chapter 2 · cross-cutting",
+    ch01: { part: "built", file: "chapters/ch01-testing-outside-in.html", title: "Testing Outside-In: The Shape of This Suite", crumb: "Chapter 1 · cross-cutting",
             blurb: "Levels vs. contracts vs. isolation, the five kinds of test double, Spec and Driver, red for the right reason, and M1's structural decisions.",
-            meta: ["cross-cutting · M1", "written 2026-11-06"] },
-    ch03: { file: "chapters/ch03-races-and-ownership.html", title: "Shared Memory, Races, and Ownership", crumb: "Chapter 3 · M2",
-            blurb: "Data races vs. race conditions, what -race can prove, the slice that escapes the lock, and mutex vs. an owning goroutine.",
-            meta: ["M2", "written 2026-11-06"] },
-    ch04: { file: "chapters/ch04-overload-and-delivery.html", title: "Overload, Retries, and What 202 Promises", crumb: "Chapter 4 · M2",
-            blurb: "At-most-once and how to measure loss, the end-to-end argument, block vs. shed vs. drop, open systems, and retries with jitter.",
-            meta: ["M2", "written 2026-11-06"] },
-    ch05: { file: "chapters/ch05-configuration.html", title: "Configuration and the Composition Root", crumb: "Chapter 5 · M2",
+            meta: ["cross-cutting · M1"] },
+    ch02: { part: "built", file: "chapters/ch02-configuration.html", title: "Configuration and the Composition Root", crumb: "Chapter 2 · M2",
             blurb: "Config precedence, the test that couldn't fail, 12-factor and APP_ENV, global switches, and zero values at a JSON boundary.",
-            meta: ["M2 in review", "written 2026-11-06"] },
-    ch06: { file: "chapters/ch06-observability.html", title: "Metrics, Logs, and Cardinality", crumb: "Chapter 6 · observability",
+            meta: ["M2, already built"] },
+    ch03: { part: "ring", file: "chapters/ch03-bounded-queues.html", title: "Bounded Queues and Worker Pools", crumb: "Chapter 3 · M2",
+            blurb: "The in-memory queue between the HTTP handler and the store: ring buffers, shedding when full, ordering across workers, and draining on shutdown.",
+            meta: ["M2 · phase 2", "build assignment"] },
+    ch04: { part: "ring", file: "chapters/ch04-races-and-ownership.html", title: "Shared Memory, Races, and Ownership", crumb: "Chapter 4 · M2",
+            blurb: "Data races vs. race conditions, what -race can prove, the slice that escapes the lock, and mutex vs. an owning goroutine.",
+            meta: ["M2 · phase 2"] },
+    ch05: { part: "ring", file: "chapters/ch05-overload-and-delivery.html", title: "Overload, Retries, and What 202 Promises", crumb: "Chapter 5 · M2",
+            blurb: "At-most-once and how to measure loss, the end-to-end argument, block vs. shed vs. drop, open systems, and retries with jitter.",
+            meta: ["M2 · phase 2"] },
+    ch06: { part: "measure", file: "chapters/ch06-observability.html", title: "Metrics, Logs, and Cardinality", crumb: "Chapter 6 · observability",
             blurb: "Series and cardinality, why device_id can't be a label, how Loki indexes, RED and USE, histograms vs. summaries, and alerting on shedding.",
-            meta: ["M2 phase 3 · M7", "written 2026-11-06"] },
-    ch07: { file: "chapters/ch07-codecs-and-packaging.html", title: "Video I: Codecs, GOPs, and Containers", crumb: "Chapter 7 · video track",
-            blurb: "Frame types and keyframe interval, codec vs. container, transcode vs. transmux, and picking a codec for a battery camera.",
-            meta: ["video track · week 1", "written 2026-11-06"] },
-    ch08: { file: "chapters/ch08-webrtc.html", title: "Video II: WebRTC and Real-Time Transport", crumb: "Chapter 8 · video track",
-            blurb: "Session setup, NAT and TURN, UDP over TCP, NACK/FEC/PLI, congestion control, diagnosing a freeze, SFUs, and glass-to-glass latency.",
-            meta: ["video track · weeks 1–2", "written 2026-11-06"] },
-    ch09: { file: "chapters/ch09-video-at-scale.html", title: "Video III: Delivery, Media Servers, and Scale", crumb: "Chapter 9 · video track",
-            blurb: "HLS and LL-HLS, live vs. recorded, media servers and KVS, stream telemetry as counters, and capacity math for 1M cameras.",
-            meta: ["video track · week 3", "written 2026-11-06"] },
-    ch10: { file: "chapters/ch10-road-ahead.html", title: "The Road Ahead: Delivery to DORA", crumb: "Chapter 10 · M3–M7",
+            meta: ["M2 phase 3 · M7"] },
+    ch07: { part: "ahead", file: "chapters/ch07-road-ahead.html", title: "The Road Ahead: Delivery to DORA", crumb: "Chapter 7 · M3–M7",
             blurb: "A preview of the remaining milestones through their interview questions: delivery guarantees, the outbox, Kafka, linearizable rate limits, and DORA.",
-            meta: ["M3–M7 preview", "written 2026-11-06"] },
+            meta: ["M3–M7 preview"] },
+    chs1: { part: "stretch", file: "chapters/chs1-codecs-and-packaging.html", title: "Video I: Codecs, GOPs, and Containers", crumb: "Chapter S1 · stretch",
+            blurb: "Frame types and keyframe interval, codec vs. container, transcode vs. transmux, and picking a codec for a battery camera.",
+            meta: ["stretch"] },
+    chs2: { part: "stretch", file: "chapters/chs2-webrtc.html", title: "Video II: WebRTC and Real-Time Transport", crumb: "Chapter S2 · stretch",
+            blurb: "Session setup, NAT and TURN, UDP over TCP, NACK/FEC/PLI, congestion control, diagnosing a freeze, SFUs, and glass-to-glass latency.",
+            meta: ["stretch"] },
+    chs3: { part: "stretch", file: "chapters/chs3-video-at-scale.html", title: "Video III: Delivery, Media Servers, and Scale", crumb: "Chapter S3 · stretch",
+            blurb: "HLS and LL-HLS, live vs. recorded, media servers and KVS, stream telemetry as counters, and capacity math for 1M cameras.",
+            meta: ["stretch"] },
   };
 
   const PLANNED = [
-    { num: 11, title: "Delivery Guarantees and Idempotency", blurb: "The full M3 chapter: SQS against LocalStack, retries, idempotent consumers, and dead-letter queues.", meta: "M3 · planned" },
-    { num: 12, title: "The Transactional Outbox", blurb: "The full M4 chapter: making a database write and a published event agree without two-phase commit.", meta: "M4 · planned" },
+    { part: "ahead", num: 8, title: "Delivery Guarantees and Idempotency", blurb: "The full M3 chapter: SQS against LocalStack, retries, idempotent consumers, and dead-letter queues.", meta: "M3 · planned" },
+    { part: "ahead", num: 9, title: "The Transactional Outbox", blurb: "The full M4 chapter: making a database write and a published event agree without two-phase commit.", meta: "M4 · planned" },
   ];
+
+  // "ch03" / "hw03" -> "3"; "chs1" / "hws1" -> "S1"
+  function numOf(id) {
+    const tail = id.slice(2);
+    return tail[0] === "s" ? "S" + tail.slice(1) : String(Number(tail));
+  }
+
+  // One-time move of browser-saved answers and checklist ticks from the first numbering
+  // (2026-11-06), when chapters were in the order they were written rather than reading order.
+  (function migrateIds() {
+    try {
+      if (localStorage.getItem("athena-ids-v2")) return;
+      const MAP = { "01": "03", "02": "01", "03": "04", "04": "05", "05": "02", "06": "06", "07": "s1", "08": "s2", "09": "s3", "10": "07" };
+      const moves = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        const m = k && /^(athena-hw-state:hw|athena-hw:hw|athena-notes:ch)(\d\d)(.*)$/.exec(k);
+        if (!m || !MAP[m[2]]) continue;
+        let rest = m[3];
+        if (m[1] === "athena-hw:hw") rest = rest.replace(/^:hw\d\d-/, ":");
+        moves.push([k, m[1] + MAP[m[2]] + rest, localStorage.getItem(k)]);
+      }
+      moves.forEach(([oldKey]) => localStorage.removeItem(oldKey));
+      moves.forEach(([, newKey, v]) => localStorage.setItem(newKey, v));
+      localStorage.setItem("athena-ids-v2", "1");
+    } catch (e) {}
+  })();
 
   const HW = {};
   (window.ATHENA_HW || []).forEach((set) => { HW[set.id] = set; });
@@ -599,9 +644,9 @@
 
   // "ch04-s5" -> "Ch 4 §5"
   function refLabel(ref) {
-    const m = /^ch(\d\d)(?:-s(\d+))?$/.exec(ref);
+    const m = /^(ch(?:\d\d|s\d))(?:-s(\d+))?$/.exec(ref);
     if (!m) return ref;
-    return "Ch " + Number(m[1]) + (m[2] ? " §" + m[2] : "");
+    return "Ch " + numOf(m[1]) + (m[2] ? " §" + m[2] : "");
   }
   function refLinks(refs) {
     return '<div class="refs"><span>Look in:</span>' +
@@ -782,27 +827,30 @@
 
   function renderLibrary() {
     const toc = document.getElementById("toc");
-    toc.innerHTML = Object.entries(CHAPTERS).map(([id, ch], i) =>
-      '<li><a class="entry" href="#' + id + '"><span class="num">' + (i + 1) + '</span><div>' +
-      "<h2>" + esc(ch.title) + "</h2><p>" + esc(ch.blurb) + '</p><div class="meta">' +
-      ch.meta.map((m) => "<span>" + esc(m) + "</span>").join("") +
-      (HW["hw" + id.slice(2)] ? "<span>homework " + Number(id.slice(2)) + "</span>" : "") +
-      "</div></div></a></li>"
-    ).join("") + PLANNED.map((p) =>
-      '<li><div class="entry planned"><span class="num">' + p.num + '</span><div><h2>' + esc(p.title) +
-      "</h2><p>" + esc(p.blurb) + '</p><div class="meta"><span>' + esc(p.meta) + "</span></div></div></div></li>"
-    ).join("");
+    toc.innerHTML = PARTS.map((part) => {
+      const chs = Object.entries(CHAPTERS).filter(([, ch]) => ch.part === part.id).map(([id, ch]) =>
+        '<li><a class="entry' + (part.id === "stretch" ? " stretch" : "") + '" href="#' + id + '"><span class="num">' + numOf(id) + '</span><div>' +
+        "<h2>" + esc(ch.title) + "</h2><p>" + esc(ch.blurb) + '</p><div class="meta">' +
+        ch.meta.map((m) => "<span>" + esc(m) + "</span>").join("") +
+        (HW["hw" + id.slice(2)] ? "<span>homework " + numOf(id) + "</span>" : "") +
+        "</div></div></a></li>").join("");
+      const planned = PLANNED.filter((p) => p.part === part.id).map((p) =>
+        '<li><div class="entry planned"><span class="num">' + p.num + '</span><div><h2>' + esc(p.title) +
+        "</h2><p>" + esc(p.blurb) + '</p><div class="meta"><span>' + esc(p.meta) + "</span></div></div></div></li>").join("");
+      return '<li class="part-head"><h3>' + esc(part.title) + "</h3><p>" + esc(part.note) + "</p></li>" + chs + planned;
+    }).join("");
 
     const list = document.getElementById("hw-list");
     list.innerHTML = (window.ATHENA_HW || []).map((set) => {
-      const n = Number(set.id.slice(2));
+      const n = numOf(set.id);
       const counts = set.parts.reduce((acc, p) => {
         const k = p.type === "match" ? p.pairs.length : p.items.length;
         acc[p.type] = (acc[p.type] || 0) + k;
         return acc;
       }, {});
       const pr = hwProgress(set);
-      return '<li><a href="#' + set.id + '"><span class="n">HW ' + n + '</span><span class="t">' + esc(set.title) +
+      return (set.id === "hws1" ? '<li class="hw-divider">Stretch · video streaming</li>' : "") +
+        '<li><a href="#' + set.id + '"><span class="n">HW ' + n + '</span><span class="t">' + esc(set.title) +
         "<small>" + (counts.interview || 0) + " interview · " + (counts.short || 0) + " short · " +
         ((counts.match || 0) + (counts.blank || 0) + (counts.mc || 0)) + " self-check</small></span>" +
         '<span class="p">' + pr.drafted + "/" + pr.total + " drafted" + (pr.graded ? " · " + pr.graded + " graded" : "") + "</span></a></li>";
@@ -1013,7 +1061,7 @@
     library.hidden = true;
     chapterView.hidden = true;
     hwView.hidden = false;
-    const n = Number(id.slice(2));
+    const n = numOf(id);
     hwCrumb.textContent = "Homework " + n + " · Chapter " + n;
 
     const counts = set.parts.filter((p) => p.type === "interview").reduce((a, p) => a + p.items.length, 0);
@@ -1037,11 +1085,13 @@
       html += "</section>";
     });
 
-    const prev = HW["hw" + String(n - 1).padStart(2, "0")];
-    const next = HW["hw" + String(n + 1).padStart(2, "0")];
+    const ORDER = (window.ATHENA_HW || []).map((x) => x.id);
+    const at = ORDER.indexOf(id);
+    const prev = HW[ORDER[at - 1]];
+    const next = HW[ORDER[at + 1]];
     html += '<nav class="hw-nav" aria-label="Other homework">' +
-      (prev ? '<a href="#' + prev.id + '">&larr; Homework ' + (n - 1) + "</a>" : "<span></span>") +
-      (next ? '<a href="#' + next.id + '">Homework ' + (n + 1) + " &rarr;</a>" : "<span></span>") + "</nav></article>";
+      (prev ? '<a href="#' + prev.id + '">&larr; Homework ' + numOf(prev.id) + "</a>" : "<span></span>") +
+      (next ? '<a href="#' + next.id + '">Homework ' + numOf(next.id) + " &rarr;</a>" : "<span></span>") + "</nav></article>";
 
     hwBody.innerHTML = html;
     refreshDom(set, hwBody, false);
@@ -1070,7 +1120,7 @@
   }
 
   async function refText(ref) {
-    const m = /^(ch\d\d)(?:-(s\d+))?$/.exec(ref);
+    const m = /^(ch(?:\d\d|s\d))(?:-(s\d+))?$/.exec(ref);
     if (!m || !CHAPTERS[m[1]]) return "";
     const doc = new DOMParser().parseFromString(await chapterHtml(m[1]), "text/html");
     doc.querySelectorAll("svg").forEach((s) => s.remove());
@@ -1248,7 +1298,7 @@
 
   function show() {
     const hash = location.hash.replace("#", "");
-    const ch = /^(ch\d\d)(?:-(s\d+))?$/.exec(hash);
+    const ch = /^(ch(?:\d\d|s\d))(?:-(s\d+))?$/.exec(hash);
     if (ch && CHAPTERS[ch[1]]) return showChapter(ch[1], ch[2]);
     if (HW[hash]) return showHomework(hash);
     currentSet = null;
