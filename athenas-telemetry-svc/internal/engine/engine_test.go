@@ -103,4 +103,56 @@ func TestEngineQueue(testCtx *testing.T) {
 		_, err = blockingStore.GetByDeviceID(deviceID)
 		assert.ErrorIs(subTestCtx, err, data.NotFoundError{DeviceID: deviceID})
 	})
+
+	testCtx.Run("full queues return a 'full' error immediately", func(subTestCtx *testing.T) {
+		// FIXME: potentially make DRY
+		blockingStore := NewBlockingDataStore()
+		subTestCtx.Cleanup(func() {
+			blockingStore.ReleaseBlock()
+		})
+
+		const maxQItems = 5
+		engineQ, err := engine.NewQueue(blockingStore,
+			engine.WithCapacity(maxQItems),
+		)
+		require.NoError(subTestCtx, err)
+
+		// push the max number of telemetry readings to the queue
+		firstSampleData, firstDeviceID := shared.ValidTelemetryN(maxQItems)
+		firstPushErrChan := make(chan error, 1)
+		go func() {
+			err := engineQ.PushTelemetry(firstSampleData...)
+			firstPushErrChan <- err
+		}()
+		select {
+		case err := <-firstPushErrChan:
+			require.NoError(subTestCtx, err)
+		case <-time.After(1 * time.Second):
+			require.Fail(subTestCtx, "PushTelemetry doesn't asynchronously insert data or is blocked by something else")
+		}
+
+		// ensure the telemetry wasn't inserted
+		// (since inserting is blocked until the end of the test)
+		_, err = blockingStore.GetByDeviceID(firstDeviceID)
+		require.ErrorIs(subTestCtx, err, data.NotFoundError{DeviceID: firstDeviceID})
+
+		// then try to push another set of readings, which should immediately error
+		secondSampleData, secondDeviceID := shared.ValidTelemetryN(maxQItems)
+		secondPushErrChan := make(chan error, 1)
+		go func() {
+			err := engineQ.PushTelemetry(secondSampleData...)
+			secondPushErrChan <- err
+		}()
+		select {
+		case err := <-secondPushErrChan:
+			require.ErrorIs(subTestCtx, err, engine.QueueFullError)
+		case <-time.After(1 * time.Second):
+			require.Fail(subTestCtx, "PushTelemetry doesn't asynchronously insert data or is blocked by something else")
+		}
+
+		// ensure the second batch of telemetry wasn't inserted
+		// (since inserting is blocked until the end of the test)
+		_, err = blockingStore.GetByDeviceID(secondDeviceID)
+		require.ErrorIs(subTestCtx, err, data.NotFoundError{DeviceID: secondDeviceID})
+	})
 }
