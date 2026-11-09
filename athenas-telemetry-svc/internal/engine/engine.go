@@ -4,6 +4,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/angiebrr/athenas-telemetry-svc/internal/data"
 	"github.com/angiebrr/athenas-telemetry-svc/models"
@@ -18,7 +19,7 @@ const (
 )
 
 var (
-	QueueFullError = errors.New("engine queue is full and cannot accept any new work, try again later")
+	ErrQueueFull = errors.New("engine queue is full and cannot accept any new work, try again later")
 )
 
 // ------------------------------------------------------------------------------------------------
@@ -57,9 +58,9 @@ func WithCapacity(capacity int) OptionFn {
 
 // WithWorkers sets the number of workers / go-routines that will be created to process the queue.
 // By default, it's set to engine.DefaultQueueWorkers
-func WithWorkers(capacity int) OptionFn {
+func WithWorkers(workers int) OptionFn {
 	return func(opts *Options) {
-		opts.Capacity = capacity
+		opts.Workers = workers
 	}
 }
 
@@ -67,7 +68,8 @@ func WithWorkers(capacity int) OptionFn {
 
 // Queue represents a data structure that allows callers to insert pending telemetry asynchronously
 type Queue struct {
-	store data.Storer
+	store        data.Storer
+	readingsChan chan models.Telemetry
 }
 
 // NewQueue creates a new Queue instance with the given data.Storer as the backing data store
@@ -90,21 +92,54 @@ func NewQueue(store data.Storer, inOptFns ...OptionFn) (*Queue, error) {
 		return nil, errors.New("data store is required for engine.Queue")
 	}
 
-	// FIXME: do something with the capacity and num workers
-
-	return &Queue{
+	engineQ := &Queue{
 		store,
-	}, nil
+		make(chan models.Telemetry, opts.Capacity),
+	}
+	engineQ.startWork(opts.Workers)
+	slog.Info("queue started", "num workers", opts.Workers, "queue capacity", opts.Capacity)
+
+	return engineQ, nil
 }
 
 // ------------------------------------------------------------------------------------------------
 
 // Queue.PushTelemetry
 // TODO: Make docstring, it's not worth doing until it's fully implemented
-func (rQueue *Queue) PushTelemetry(newTelemetry ...models.Telemetry) error {
-	// FIXME: This needs to actually use workers and a queue, but need a better test for that first
-	go func() {
-		_ = rQueue.store.Insert(newTelemetry...)
-	}()
+func (rQueue *Queue) PushTelemetry(readings ...models.Telemetry) error {
+	for _, reading := range readings {
+		if err := rQueue.pushWork(reading); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
+
+func (rQueue *Queue) startWork(numWorkers int) {
+	for range numWorkers {
+		go rQueue.consumeWork()
+	}
+}
+
+func (rQueue *Queue) consumeWork() {
+	for reading := range rQueue.readingsChan {
+		if err := rQueue.store.Insert(reading); err != nil {
+			// TODO: collect errors somewhere maybe like sentry?
+			slog.Error("failed to insert to data store", "err", err)
+		}
+	}
+}
+
+func (rQueue *Queue) pushWork(reading models.Telemetry) error {
+	select {
+	case rQueue.readingsChan <- reading:
+		slog.Debug("reading pushed!")
+		return nil
+	default:
+		slog.Debug("queue full, rejecting reading")
+		return ErrQueueFull
+	}
+}
+
+// FIXME: Add shutdown, context, etc.

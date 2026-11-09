@@ -72,38 +72,6 @@ func TestEngineQueue(testCtx *testing.T) {
 		}, eventuallyWaitFor, eventuallyTick)
 	})
 
-	// FIXME: potentially remove this test after implementing the full queue test, as this may be
-	// redundant
-	testCtx.Run("queued readings are async from data insertions", func(subTestCtx *testing.T) {
-		blockingStore := NewBlockingDataStore()
-		subTestCtx.Cleanup(func() {
-			blockingStore.ReleaseBlock()
-		})
-		engineQ, err := engine.NewQueue(blockingStore)
-		require.NoError(subTestCtx, err)
-
-		numReadings := 5
-		sampleData, deviceID := shared.ValidTelemetryN(numReadings)
-
-		// we basically make sure here that PushTelemetry doesn't wait on the data store
-		pushErrChan := make(chan error, 1)
-		go func() {
-			err := engineQ.PushTelemetry(sampleData...)
-			pushErrChan <- err
-		}()
-		select {
-		case err := <-pushErrChan:
-			require.NoError(subTestCtx, err)
-		case <-time.After(1 * time.Second):
-			require.Fail(subTestCtx, "PushTelemetry doesn't asynchronously insert data")
-		}
-
-		// ensure the telemetry wasn't inserted
-		// (since inserting is blocked until the end of the test)
-		_, err = blockingStore.GetByDeviceID(deviceID)
-		assert.ErrorIs(subTestCtx, err, data.NotFoundError{DeviceID: deviceID})
-	})
-
 	testCtx.Run("full queues return a 'full' error immediately", func(subTestCtx *testing.T) {
 		// FIXME: potentially make DRY
 		blockingStore := NewBlockingDataStore()
@@ -112,8 +80,10 @@ func TestEngineQueue(testCtx *testing.T) {
 		})
 
 		const maxQItems = 5
+		const oneWorker = 1
 		engineQ, err := engine.NewQueue(blockingStore,
 			engine.WithCapacity(maxQItems),
+			engine.WithWorkers(oneWorker),
 		)
 		require.NoError(subTestCtx, err)
 
@@ -145,7 +115,7 @@ func TestEngineQueue(testCtx *testing.T) {
 		}()
 		select {
 		case err := <-secondPushErrChan:
-			require.ErrorIs(subTestCtx, err, engine.QueueFullError)
+			require.ErrorIs(subTestCtx, err, engine.ErrQueueFull)
 		case <-time.After(1 * time.Second):
 			require.Fail(subTestCtx, "PushTelemetry doesn't asynchronously insert data or is blocked by something else")
 		}
