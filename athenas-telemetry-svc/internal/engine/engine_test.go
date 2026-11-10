@@ -14,6 +14,9 @@ import (
 
 // ================================================================================================
 
+// TODO: Look into creating a slog instance and pass in testing obj
+// logger := slog.New(slog.NewTextHandler(testCtx.Output(), nil))
+
 // FIXME: Add docstrings, potentially move to the data package, shared package, or make a testutils
 // package
 

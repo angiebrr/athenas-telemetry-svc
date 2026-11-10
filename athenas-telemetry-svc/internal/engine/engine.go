@@ -12,6 +12,8 @@ import (
 
 // ================================================================================================
 
+// TODO: Pass in logger instance to struct here and in the rest of the service
+
 // FIXME: These numbers are very temporary and should be tuned
 const (
 	DefaultQueueCapacity = 50
